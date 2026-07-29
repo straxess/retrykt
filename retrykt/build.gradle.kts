@@ -6,21 +6,16 @@ plugins {
     alias(libs.plugins.vanniktech.mavenPublish)
 }
 
-group = "io.github.kotlin"
-version = "1.0.0"
+group = "io.github.straxess.retrykt"
+version = "0.0.0"
 
 kotlin {
+    explicitApi()
     jvm()
     androidLibrary {
-        namespace = "org.jetbrains.kotlinx.multiplatform.library.template"
+        namespace = group.toString()
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
-
-        withJava() // enable java compilation support
-        withHostTestBuilder {}.configure {}
-        withDeviceTestBuilder {
-            sourceSetTreeName = "test"
-        }
 
         compilerOptions {
             jvmTarget = JvmTarget.JVM_11
@@ -47,31 +42,38 @@ mavenPublishing {
 
     signAllPublications()
 
-    coordinates(group.toString(), "library", version.toString())
+    coordinates(
+        groupId = group.toString(),
+        artifactId = "retrykt",
+        version = version.toString(),
+    )
 
     pom {
-        name = "My library"
-        description = "A library."
-        inceptionYear = "2024"
-        url = "https://github.com/kotlin/multiplatform-library-template/"
+        name = "RetryKt"
+        description = "A lightweight KMP library for retrying operations with configurable retry policies, backoff strategies, and jitter."
+        url = "https://github.com/straxess/retrykt"
+        inceptionYear = "2026"
+
         licenses {
             license {
-                name = "XXX"
-                url = "YYY"
-                distribution = "ZZZ"
+                name = "Apache License, Version 2.0"
+                url = "https://www.apache.org/licenses/LICENSE-2.0"
+                distribution = "repo"
             }
         }
+
         developers {
             developer {
-                id = "XXX"
-                name = "YYY"
-                url = "ZZZ"
+                id = "straxess"
+                name = "Andrey Afanasyev"
+                url = "https://github.com/straxess"
             }
         }
+
         scm {
-            url = "XXX"
-            connection = "YYY"
-            developerConnection = "ZZZ"
+            url = "https://github.com/straxess/retrykt"
+            connection = "scm:git:git://github.com/straxess/retrykt.git"
+            developerConnection = "scm:git:ssh://git@github.com/straxess/retrykt.git"
         }
     }
 }

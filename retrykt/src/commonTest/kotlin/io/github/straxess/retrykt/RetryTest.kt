@@ -1,4 +1,4 @@
-package llemur.retry
+package io.github.straxess.retrykt
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -10,7 +10,7 @@ class RetryTest {
     fun `simple retry`() {
         var int = 0
 
-        Retry().execute {
+        retryBlocking {
             int += 1
         }
 
@@ -21,7 +21,7 @@ class RetryTest {
     fun `success after some failures`() {
         var int = 0
 
-        Retry().execute {
+        retryBlocking {
             int += 1
 
             if (int < 5) {
@@ -33,9 +33,9 @@ class RetryTest {
     }
 
     @Test
-    fun `retry with max invocations`() {
+    fun `retry with max attempts`() {
         assertFailsWith<Exception> {
-            Retry(maxTries = 3).execute {
+            retryBlocking(maxAttempts = 3) {
                 throw RuntimeException("not enough")
             }
         }

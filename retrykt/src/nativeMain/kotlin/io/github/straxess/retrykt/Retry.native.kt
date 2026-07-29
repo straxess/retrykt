@@ -1,4 +1,4 @@
-package llemur.retry
+package io.github.straxess.retrykt
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.cValue
@@ -7,7 +7,7 @@ import platform.posix.timespec
 import kotlin.time.Duration
 
 @OptIn(ExperimentalForeignApi::class)
-actual fun sleep(duration: Duration) {
+internal actual fun sleep(duration: Duration) {
     val millis = duration.inWholeMilliseconds
 
     val request = cValue<timespec> {

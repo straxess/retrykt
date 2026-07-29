@@ -1,4 +1,4 @@
-package llemur.retry.jitter
+package io.github.straxess.retrykt.jitter
 
 import kotlin.random.Random
 import kotlin.time.Duration
@@ -7,7 +7,7 @@ import kotlin.time.Duration.Companion.microseconds
 /**
  * Applies a random delay in the range [0, maxJitter).
  */
-class RandomJitter(
+public class RandomJitter(
     private val maxJitter: Duration
 ) : Jitter {
 

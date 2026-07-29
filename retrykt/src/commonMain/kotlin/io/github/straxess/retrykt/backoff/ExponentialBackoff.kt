@@ -1,11 +1,11 @@
-package llemur.retry.backoff
+package io.github.straxess.retrykt.backoff
 
-import llemur.retry.jitter.Jitter
-import llemur.retry.jitter.NoJitter
+import io.github.straxess.retrykt.jitter.Jitter
+import io.github.straxess.retrykt.jitter.NoJitter
 import kotlin.math.pow
 import kotlin.time.Duration
 
-class ExponentialBackoff(
+public class ExponentialBackoff(
     private val delay: Duration,
     private val stepMultiplier: Double,
     private val jitter: Jitter = NoJitter,
