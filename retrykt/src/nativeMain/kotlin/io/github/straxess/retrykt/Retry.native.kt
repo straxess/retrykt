@@ -5,14 +5,17 @@ import kotlinx.cinterop.cValue
 import platform.posix.nanosleep
 import platform.posix.timespec
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalForeignApi::class)
 internal actual fun sleep(duration: Duration) {
-    val millis = duration.inWholeMilliseconds
+    require(!duration.isNegative())
 
+    val seconds = duration.inWholeSeconds
+    val nanos = (duration - seconds.seconds).inWholeNanoseconds
     val request = cValue<timespec> {
-        tv_sec = millis / 1000
-        tv_nsec = (millis % 1000) * 1_000_000
+        tv_sec = seconds
+        tv_nsec = nanos
     }
 
     nanosleep(request, null)

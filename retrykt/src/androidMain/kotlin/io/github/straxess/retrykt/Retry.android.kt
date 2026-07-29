@@ -1,8 +1,12 @@
 package io.github.straxess.retrykt
 
-import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
 
 internal actual fun sleep(duration: Duration) {
-    TimeUnit.MILLISECONDS.sleep(duration.inWholeMilliseconds)
+    require(!duration.isNegative())
+
+    val millis = duration.inWholeMilliseconds
+    val nanos = (duration.inWholeNanoseconds % 1_000_000).toInt()
+
+    Thread.sleep(millis, nanos)
 }
