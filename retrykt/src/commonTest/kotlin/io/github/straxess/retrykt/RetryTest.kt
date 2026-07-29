@@ -1,5 +1,6 @@
 package io.github.straxess.retrykt
 
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -7,10 +8,10 @@ import kotlin.test.assertFailsWith
 class RetryTest {
 
     @Test
-    fun `simple retry`() {
+    fun `simple retry`() = runTest {
         var int = 0
 
-        retryBlocking {
+        retry {
             int += 1
         }
 
@@ -18,10 +19,10 @@ class RetryTest {
     }
 
     @Test
-    fun `success after some failures`() {
+    fun `success after some failures`() = runTest {
         var int = 0
 
-        retryBlocking {
+        retry {
             int += 1
 
             if (int < 5) {
@@ -33,9 +34,9 @@ class RetryTest {
     }
 
     @Test
-    fun `retry with max attempts`() {
+    fun `retry with max attempts`() = runTest {
         assertFailsWith<Exception> {
-            retryBlocking(maxAttempts = 3) {
+            retry(maxAttempts = 3) {
                 throw RuntimeException("not enough")
             }
         }
