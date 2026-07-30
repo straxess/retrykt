@@ -1,9 +1,11 @@
 package io.github.straxess.retrykt
 
 import kotlinx.coroutines.test.runTest
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 
 class RetryTest {
 
@@ -40,5 +42,51 @@ class RetryTest {
                 throw RuntimeException("not enough")
             }
         }
+    }
+
+    @Test
+    fun `does not retry when exception does not match retryIf`() = runTest {
+        var attempts = 0
+
+        assertFailsWith<IllegalStateException> {
+            retry(retryIf = { it is IllegalArgumentException }) {
+                attempts++
+                throw IllegalStateException()
+            }
+        }
+
+        assertEquals(1, attempts)
+    }
+
+    @Test
+    fun `retries when exception matches retryIf`() = runTest {
+        var attempts = 0
+
+        retry(retryIf = { it is IllegalStateException }) {
+            attempts++
+            if (attempts == 1) {
+                throw IllegalStateException()
+            }
+        }
+
+        assertEquals(2, attempts)
+    }
+
+    @Test
+    fun `always rethrows CancellationException`() = runTest {
+        var predicateCalled = false
+
+        assertFailsWith<CancellationException> {
+            retry(
+                retryIf = {
+                    predicateCalled = true
+                    it is CancellationException
+                }
+            ) {
+                throw CancellationException()
+            }
+        }
+
+        assertFalse(predicateCalled)
     }
 }

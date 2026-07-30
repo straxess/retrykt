@@ -11,6 +11,10 @@ import kotlin.time.Duration.Companion.seconds
 internal actual fun sleep(duration: Duration) {
     require(!duration.isNegative())
 
+    if (duration == Duration.ZERO) {
+        return
+    }
+
     val seconds = duration.inWholeSeconds
     val nanos = (duration - seconds.seconds).inWholeNanoseconds
     val request = cValue<timespec> {

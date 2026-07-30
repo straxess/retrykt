@@ -5,7 +5,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.microseconds
 
 /**
- * Applies a random delay in the range [0, maxJitter).
+ * Applies a random jitter in the range [0, maxJitter).
  */
 public class RandomJitter(
     private val maxJitter: Duration

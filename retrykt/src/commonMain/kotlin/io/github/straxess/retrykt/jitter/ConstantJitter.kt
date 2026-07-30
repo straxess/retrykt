@@ -3,7 +3,7 @@ package io.github.straxess.retrykt.jitter
 import kotlin.time.Duration
 
 /**
- * Applies a constant delay.
+ * Applies a constant jitter.
  */
 public class ConstantJitter(
     private val jitter: Duration
@@ -11,7 +11,7 @@ public class ConstantJitter(
 
     init {
         require(jitter >= Duration.ZERO) {
-            "maxJitter must be non-negative."
+            "jitter must be non-negative."
         }
     }
 

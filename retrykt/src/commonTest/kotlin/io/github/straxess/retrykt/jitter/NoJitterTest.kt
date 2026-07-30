@@ -7,7 +7,7 @@ import kotlin.time.Duration.Companion.seconds
 class NoJitterTest {
 
     @Test
-    fun `return original delay`() {
+    fun `returns an original delay`() {
         val jitter = NoJitter
         val baseDelay = 10.seconds
 
