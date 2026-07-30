@@ -1,46 +1,48 @@
 package io.github.straxess.retrykt
 
 import kotlin.coroutines.cancellation.CancellationException
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
+import kotlin.test.*
 
 class RetryBlockingTest {
 
     @Test
     fun `simple retry`() {
-        var int = 0
+        var attempts = 0
 
         retryBlocking {
-            int += 1
+            attempts += 1
         }
 
-        assertEquals(1, int)
+        assertEquals(1, attempts)
     }
 
     @Test
     fun `success after some failures`() {
-        var int = 0
+        var attempts = 0
 
         retryBlocking {
-            int += 1
+            attempts += 1
 
-            if (int < 5) {
+            if (attempts < 5) {
                 throw RuntimeException()
             }
         }
 
-        assertEquals(5, int)
+        assertEquals(5, attempts)
     }
 
     @Test
     fun `retry with max attempts`() {
-        assertFailsWith<Exception> {
+        var attempts = 0
+
+        assertFailsWith<RuntimeException> {
             retryBlocking(maxAttempts = 3) {
+                attempts++
                 throw RuntimeException()
             }
         }
+
+        assertEquals(3, attempts)
     }
 
     @Test
@@ -87,5 +89,67 @@ class RetryBlockingTest {
         }
 
         assertFalse(predicateCalled)
+    }
+
+    @Test
+    fun `stops retrying when exception no longer matches retryIf`() {
+        var attempts = 0
+
+        assertFailsWith<IllegalArgumentException> {
+            retryBlocking(retryIf = { it is IllegalStateException }) {
+                attempts++
+
+                if (attempts == 1) {
+                    throw IllegalStateException()
+                }
+
+                throw IllegalArgumentException()
+            }
+        }
+
+        assertEquals(2, attempts)
+    }
+
+    @Test
+    fun `attempt index increments on each retry`() {
+        val attempts = mutableListOf<Int>()
+
+        retryBlocking(maxAttempts = 4) {
+            attempts += it.attempt
+
+            if (it.attempt < 3) {
+                throw RuntimeException()
+            }
+        }
+
+        assertEquals(listOf(0, 1, 2, 3), attempts)
+    }
+
+    @Test
+    fun `lastThrowable is null on first attempt`() {
+        var throwable: Throwable? = RuntimeException()
+
+        retryBlocking {
+            throwable = it.lastThrowable
+        }
+
+        assertEquals(null, throwable)
+    }
+
+    @Test
+    fun `lastThrowable contains previous exception`() {
+        val exception = IllegalStateException("boom")
+
+        var previous: Throwable? = null
+
+        retryBlocking {
+            previous = it.lastThrowable
+
+            if (it.attempt == 0) {
+                throw exception
+            }
+        }
+
+        assertSame(exception, previous)
     }
 }
