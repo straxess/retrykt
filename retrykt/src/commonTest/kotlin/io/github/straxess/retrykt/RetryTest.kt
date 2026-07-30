@@ -153,4 +153,27 @@ class RetryTest {
 
         assertSame(exception, previous)
     }
+
+    @Test
+    fun `lastThrowable is updated after each failed attempt`() = runTest {
+        val first = IllegalStateException()
+        val second = IllegalArgumentException()
+
+        val previous = mutableListOf<Throwable?>()
+
+        retry(maxAttempts = 3, retryIf = { it is IllegalStateException || it is IllegalArgumentException }) {
+            previous += it.lastThrowable
+
+            when (it.attempt) {
+                0 -> throw first
+                1 -> throw second
+                else -> {}
+            }
+        }
+
+        assertEquals(3, previous.size)
+        assertNull(previous[0])
+        assertSame(first, previous[1])
+        assertSame(second, previous[2])
+    }
 }
