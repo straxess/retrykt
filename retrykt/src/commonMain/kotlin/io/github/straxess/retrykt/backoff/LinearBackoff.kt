@@ -16,7 +16,7 @@ public class LinearBackoff(
     }
 
     override fun nextDelay(attempt: Int): Duration {
-        val baseDelay = step * attempt
+        val baseDelay = step * (attempt + 1)
         return jitter.apply(baseDelay)
     }
 }

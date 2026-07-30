@@ -6,24 +6,27 @@ import kotlin.math.pow
 import kotlin.time.Duration
 
 public class ExponentialBackoff(
-    private val delay: Duration,
+    private val initialDelay: Duration,
     private val stepMultiplier: Double,
     private val jitter: Jitter = NoJitter,
 ) : Backoff {
 
     init {
-        require(delay >= Duration.ZERO) {
+        require(initialDelay >= Duration.ZERO) {
             "baseDelay must not be negative."
         }
 
-        require(stepMultiplier > 0) {
-            "stepMultiplier must be positive."
+        require(stepMultiplier.isFinite()) {
+            "stepMultiplier must be finite."
+        }
+
+        require(stepMultiplier >= 1.0) {
+            "stepMultiplier must not be less than 1.0."
         }
     }
 
     override fun nextDelay(attempt: Int): Duration {
-        stepMultiplier.pow(attempt)
-        val baseDelay = delay * stepMultiplier.pow(attempt)
+        val baseDelay = initialDelay * stepMultiplier.pow(attempt)
         return jitter.apply(baseDelay)
     }
 }
