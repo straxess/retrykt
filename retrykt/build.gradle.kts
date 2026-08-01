@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "io.github.straxess.retrykt"
-version = "0.0.0"
+version = "0.1.0-alpha.1"
 
 kotlin {
     explicitApi()
