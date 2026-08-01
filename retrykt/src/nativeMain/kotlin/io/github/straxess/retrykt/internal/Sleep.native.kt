@@ -1,4 +1,4 @@
-package io.github.straxess.retrykt
+package io.github.straxess.retrykt.internal
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.cValue
