@@ -1,8 +1,12 @@
 package io.github.straxess.retrykt
 
+import io.github.straxess.retrykt.backoff.Backoff
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.*
+import kotlin.time.Duration.Companion.milliseconds
 
 class RetryTest {
 
@@ -76,20 +80,16 @@ class RetryTest {
 
     @Test
     fun `always rethrows CancellationException`() = runTest {
-        var predicateCalled = false
-
         assertFailsWith<CancellationException> {
             retry(
                 retryIf = {
-                    predicateCalled = true
+                    error("should not be called")
                     it is CancellationException
                 }
             ) {
                 throw CancellationException()
             }
         }
-
-        assertFalse(predicateCalled)
     }
 
     @Test
@@ -175,5 +175,26 @@ class RetryTest {
         assertNull(previous[0])
         assertSame(first, previous[1])
         assertSame(second, previous[2])
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `retry delays between attempts`() = runTest {
+        var attempts = 0
+
+        retry(
+            maxAttempts = 2,
+            backoff = object : Backoff {
+                override fun nextDelay(attempt: Int) = 20.milliseconds
+            }
+        ) {
+            attempts++
+            if (attempts == 1) {
+                throw RuntimeException("fail")
+            }
+        }
+
+        assertEquals(2, attempts)
+        assertEquals(20, currentTime)
     }
 }

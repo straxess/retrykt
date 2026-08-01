@@ -17,7 +17,11 @@ kotlin {
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
 
+        withJava() // enable java compilation support
         withHostTestBuilder {}.configure {}
+        withDeviceTestBuilder {
+            sourceSetTreeName = "test"
+        }
         compilerOptions {
             jvmTarget = JvmTarget.JVM_11
         }
@@ -51,7 +55,8 @@ mavenPublishing {
 
     pom {
         name = "RetryKt"
-        description = "A lightweight KMP library for retrying operations with configurable retry policies, backoff strategies, and jitter."
+        description =
+            "A lightweight KMP library for retrying operations with configurable retry policies, backoff strategies, and jitter."
         url = "https://github.com/straxess/retrykt"
         inceptionYear = "2026"
 
