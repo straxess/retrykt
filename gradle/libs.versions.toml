@@ -4,7 +4,7 @@ kotlin = "2.3.10"
 coroutines = "1.10.2"
 android-minSdk = "24"
 android-compileSdk = "36"
-vanniktechMavenPublish = "0.36.0"
+vanniktechMavenPublish = "0.37.0"
 
 [libraries]
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
