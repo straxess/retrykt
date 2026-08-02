@@ -63,7 +63,7 @@ val user = retry {
 Retry only network failures:
 
 ```kotlin
-val user = retry(retryIf = { it is IOException }) {
+val user = retry(shouldRetry = { it is IOException }) {
     api.getUser()
 }
 ```
@@ -75,7 +75,8 @@ val user = retry(
     maxAttempts = 5,
     backoff = ExponentialBackoff(
         initialDelay = 100.milliseconds,
-        stepMultiplier = 2.0,
+        multiplier = 2.0,
+        maxDelay = 10.seconds,
     )
 ) {
     api.getUser()
@@ -134,7 +135,7 @@ Avoid synchronized retries by randomizing delays.
 
 ```kotlin
 LinearBackoff(
-    step = 200.milliseconds,
+    increment = 200.milliseconds,
     jitter = RandomJitter(100.milliseconds)
 )
 ```
@@ -157,7 +158,7 @@ class MyJitter : Jitter {
 Retry only selected exceptions.
 
 ```kotlin
-retry(retryIf = { it is IOException || it is TimeoutException }) {
+retry(shouldRetry = { it is IOException || it is TimeoutException }) {
     request()
 }
 ```
@@ -171,7 +172,7 @@ Use `retry()` in coroutine-based code.
 ### Ktor Client
 
 ```kotlin
-val user = retry(retryIf = { it is IOException }) {
+val user = retry(shouldRetry = { it is IOException }) {
     client.get("/users/$id").body<User>()
 }
 ```

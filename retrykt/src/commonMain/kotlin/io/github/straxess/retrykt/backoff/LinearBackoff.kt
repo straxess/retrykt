@@ -5,18 +5,18 @@ import io.github.straxess.retrykt.jitter.NoJitter
 import kotlin.time.Duration
 
 public class LinearBackoff(
-    private val step: Duration,
-    private val jitter: Jitter = NoJitter,
+    public val increment: Duration,
+    public val jitter: Jitter = NoJitter,
 ) : Backoff {
 
     init {
-        require(step >= Duration.ZERO) {
-            "step must not be negative."
+        require(increment >= Duration.ZERO) {
+            "increment must not be negative."
         }
     }
 
     override fun nextDelay(attempt: Int): Duration {
-        val baseDelay = step * (attempt + 1)
+        val baseDelay = increment * (attempt)
         return jitter.apply(baseDelay)
     }
 }

@@ -8,7 +8,7 @@ import kotlin.time.Duration.Companion.microseconds
  * Applies a random jitter in the range [0, maxJitter).
  */
 public class RandomJitter(
-    private val maxJitter: Duration
+    public val maxJitter: Duration
 ) : Jitter {
 
     init {

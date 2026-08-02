@@ -51,11 +51,11 @@ class RetryTest {
     }
 
     @Test
-    fun `does not retry when exception does not match retryIf`() = runTest {
+    fun `does not retry when exception does not match shouldRetry`() = runTest {
         var attempts = 0
 
         assertFailsWith<IllegalStateException> {
-            retry(retryIf = { it is IllegalArgumentException }) {
+            retry(shouldRetry = { it is IllegalArgumentException }) {
                 attempts++
                 throw IllegalStateException()
             }
@@ -65,10 +65,10 @@ class RetryTest {
     }
 
     @Test
-    fun `retries when exception matches retryIf`() = runTest {
+    fun `retries when exception matches shouldRetry`() = runTest {
         var attempts = 0
 
-        retry(retryIf = { it is IllegalStateException }) {
+        retry(shouldRetry = { it is IllegalStateException }) {
             attempts++
             if (attempts == 1) {
                 throw IllegalStateException()
@@ -82,7 +82,7 @@ class RetryTest {
     fun `always rethrows CancellationException`() = runTest {
         assertFailsWith<CancellationException> {
             retry(
-                retryIf = {
+                shouldRetry = {
                     error("should not be called")
                     it is CancellationException
                 }
@@ -93,11 +93,11 @@ class RetryTest {
     }
 
     @Test
-    fun `stops retrying when exception no longer matches retryIf`() = runTest {
+    fun `stops retrying when exception no longer matches shouldRetry`() = runTest {
         var attempts = 0
 
         assertFailsWith<IllegalArgumentException> {
-            retry(retryIf = { it is IllegalStateException }) {
+            retry(shouldRetry = { it is IllegalStateException }) {
                 attempts++
 
                 if (attempts == 1) {
@@ -118,12 +118,12 @@ class RetryTest {
         retry(maxAttempts = 4) {
             attempts += it.attempt
 
-            if (it.attempt < 3) {
+            if (it.attempt < 4) {
                 throw RuntimeException()
             }
         }
 
-        assertEquals(listOf(0, 1, 2, 3), attempts)
+        assertEquals(listOf(1, 2, 3, 4), attempts)
     }
 
     @Test
@@ -146,7 +146,7 @@ class RetryTest {
         retry {
             previous = it.lastThrowable
 
-            if (it.attempt == 0) {
+            if (it.attempt == 1) {
                 throw exception
             }
         }
@@ -161,12 +161,12 @@ class RetryTest {
 
         val previous = mutableListOf<Throwable?>()
 
-        retry(maxAttempts = 3, retryIf = { it is IllegalStateException || it is IllegalArgumentException }) {
+        retry(maxAttempts = 3, shouldRetry = { it is IllegalStateException || it is IllegalArgumentException }) {
             previous += it.lastThrowable
 
             when (it.attempt) {
-                0 -> throw first
-                1 -> throw second
+                1 -> throw first
+                2 -> throw second
                 else -> {}
             }
         }

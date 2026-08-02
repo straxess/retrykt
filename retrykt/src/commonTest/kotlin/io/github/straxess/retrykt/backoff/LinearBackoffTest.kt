@@ -13,9 +13,9 @@ class LinearBackoffTest {
     fun `returns linear delay`() {
         val backoff = LinearBackoff(10.seconds)
 
-        val firstDelay = backoff.nextDelay(0)
-        val secondDelay = backoff.nextDelay(1)
-        val thirdDelay = backoff.nextDelay(2)
+        val firstDelay = backoff.nextDelay(1)
+        val secondDelay = backoff.nextDelay(2)
+        val thirdDelay = backoff.nextDelay(3)
 
         assertEquals(10.seconds, firstDelay)
         assertEquals(20.seconds, secondDelay)
@@ -26,15 +26,15 @@ class LinearBackoffTest {
     fun `LinearBackoff applies jitter`() {
         val backoff = LinearBackoff(10.seconds, ConstantJitter(100.milliseconds))
 
-        val firstDelay = backoff.nextDelay(0)
-        val secondDelay = backoff.nextDelay(1)
+        val firstDelay = backoff.nextDelay(1)
+        val secondDelay = backoff.nextDelay(2)
 
         assertEquals(10.seconds + 100.milliseconds, firstDelay)
         assertEquals(20.seconds + 100.milliseconds, secondDelay)
     }
 
     @Test
-    fun `LinearBackoff throws IllegalArgumentException if step is less than 0`() {
+    fun `LinearBackoff throws IllegalArgumentException if increment is less than 0`() {
         assertFailsWith<IllegalArgumentException> {
             LinearBackoff((-10).seconds)
         }

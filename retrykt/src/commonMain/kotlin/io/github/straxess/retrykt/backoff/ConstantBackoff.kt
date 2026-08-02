@@ -5,8 +5,8 @@ import io.github.straxess.retrykt.jitter.NoJitter
 import kotlin.time.Duration
 
 public class ConstantBackoff(
-    private val delay: Duration,
-    private val jitter: Jitter = NoJitter,
+    public val delay: Duration,
+    public val jitter: Jitter = NoJitter,
 ) : Backoff {
 
     init {

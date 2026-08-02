@@ -9,14 +9,14 @@ import kotlin.coroutines.cancellation.CancellationException
 public suspend fun <T> retry(
     maxAttempts: Int = Int.MAX_VALUE,
     backoff: Backoff = NoBackoff,
-    retryIf: (Throwable) -> Boolean = { true },
+    shouldRetry: (Throwable) -> Boolean = { true },
     task: suspend (RetryContext) -> T
 ): T {
     require(maxAttempts > 0) {
         "maxAttempts must be greater than zero."
     }
 
-    var attempt = 0
+    var attempt = 1
     var lastThrowable: Throwable? = null
     while (true) {
         try {
@@ -27,11 +27,11 @@ public suspend fun <T> retry(
                 throw t
             }
 
-            if (attempt + 1 >= maxAttempts) {
+            if (attempt >= maxAttempts) {
                 throw t
             }
 
-            if (!retryIf(t)) {
+            if (!shouldRetry(t)) {
                 throw t
             }
 
@@ -46,14 +46,14 @@ public suspend fun <T> retry(
 public fun <T> retryBlocking(
     maxAttempts: Int = Int.MAX_VALUE,
     backoff: Backoff = NoBackoff,
-    retryIf: (Throwable) -> Boolean = { true },
+    shouldRetry: (Throwable) -> Boolean = { true },
     task: (RetryContext) -> T
 ): T {
     require(maxAttempts > 0) {
         "maxAttempts must be greater than zero."
     }
 
-    var attempt = 0
+    var attempt = 1
     var lastThrowable: Throwable? = null
     while (true) {
         try {
@@ -64,11 +64,11 @@ public fun <T> retryBlocking(
                 throw t
             }
 
-            if (attempt + 1 >= maxAttempts) {
+            if (attempt >= maxAttempts) {
                 throw t
             }
 
-            if (!retryIf(t)) {
+            if (!shouldRetry(t)) {
                 throw t
             }
 
@@ -81,6 +81,9 @@ public fun <T> retryBlocking(
 }
 
 public class RetryContext internal constructor(
+    /**
+     * Starts from 1
+     */
     public val attempt: Int,
     public val lastThrowable: Throwable?
 )
