@@ -87,10 +87,10 @@ Use the retry context:
 
 ```kotlin
 retry(maxAttempts = 3) { ctx ->
-    logger.info("Attempt #${ctx.attempt}")
+    log.info("Attempt ${ctx.attempt}/${ctx.maxAttempts}")
 
     ctx.lastThrowable?.let {
-        logger.warn(it) { "Previous attempt failed" }
+        log.warn(it) { "Previous attempt failed" }
     }
 
     uploadFile()

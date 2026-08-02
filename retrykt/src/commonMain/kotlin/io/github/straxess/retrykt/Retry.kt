@@ -20,8 +20,8 @@ public suspend fun <T> retry(
     var lastThrowable: Throwable? = null
     while (true) {
         try {
-            val result = task(RetryContext(attempt = attempt, lastThrowable = lastThrowable))
-            return result
+            val retryContext = RetryContext(attempt, maxAttempts, lastThrowable)
+            return task(retryContext)
         } catch (t: Throwable) {
             if (t is CancellationException) {
                 throw t
@@ -57,8 +57,8 @@ public fun <T> retryBlocking(
     var lastThrowable: Throwable? = null
     while (true) {
         try {
-            val result = task(RetryContext(attempt = attempt, lastThrowable = lastThrowable))
-            return result
+            val retryContext = RetryContext(attempt, maxAttempts, lastThrowable)
+            return task(retryContext)
         } catch (t: Throwable) {
             if (t is CancellationException) {
                 throw t
@@ -81,9 +81,20 @@ public fun <T> retryBlocking(
 }
 
 public class RetryContext internal constructor(
+
     /**
-     * Starts from 1
+     * Current attempt number. Starts from 1.
      */
     public val attempt: Int,
+
+    /**
+     * Maximum allowed attempts.
+     */
+    public val maxAttempts: Int,
+
+    /**
+     * Exception from the previous failed attempt.
+     * Null on the first attempt.
+     */
     public val lastThrowable: Throwable?
 )

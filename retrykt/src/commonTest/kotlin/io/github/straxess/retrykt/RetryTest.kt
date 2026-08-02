@@ -127,6 +127,22 @@ class RetryTest {
     }
 
     @Test
+    fun `retry context maxAttempts matches configured maxAttempts`() = runTest {
+        val maxAttempts = 3
+        val attempts = mutableListOf<Int>()
+
+        assertFailsWith<RuntimeException> {
+            retry(maxAttempts = maxAttempts) { context ->
+                attempts += context.maxAttempts
+
+                throw RuntimeException()
+            }
+        }
+
+        assertEquals(listOf(3, 3, 3), attempts)
+    }
+
+    @Test
     fun `lastThrowable is null on first attempt`() = runTest {
         var throwable: Throwable? = RuntimeException()
 
