@@ -197,4 +197,11 @@ class RetryTest {
         assertEquals(2, attempts)
         assertEquals(20, currentTime)
     }
+
+    @Test
+    fun `retry throws IllegalArgumentException if maxAttempts is less than 1`() = runTest {
+        assertFailsWith<IllegalArgumentException> {
+            retry(maxAttempts = 0) {}
+        }
+    }
 }

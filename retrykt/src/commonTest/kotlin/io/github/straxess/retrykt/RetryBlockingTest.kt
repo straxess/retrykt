@@ -197,4 +197,11 @@ class RetryBlockingTest {
         assertEquals(2, attempts)
         assertTrue(start.elapsedNow() >= 20.milliseconds)
     }
+
+    @Test
+    fun `retry throws IllegalArgumentException if maxAttempts is less than 1`() {
+        assertFailsWith<IllegalArgumentException> {
+            retryBlocking(maxAttempts = 0) {}
+        }
+    }
 }
