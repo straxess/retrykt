@@ -2,17 +2,16 @@
 
 > A lightweight Kotlin Multiplatform retry library with pluggable backoff strategies.
 
-### Features:
+## Features
 
 - Kotlin Multiplatform
 - Coroutine-first API
-- Blocking and suspend APIs
+- `retry()` and `retryBlocking()`
 - JVM / Android / iOS / macOS / Linux
 - Pluggable Backoff
 - Pluggable Jitter
 - Retry predicates
 - Retry context
-- Zero reflection
 - Zero dependencies
 
 ---
@@ -39,7 +38,12 @@ dependencies {
 
 ---
 
-# Usage
+## Quick Start
+
+> **Rule of thumb**
+>
+> Use `retry()` in suspend code.  
+> Use `retryBlocking()` everywhere else.
 
 Retry an HTTP request:
 
@@ -52,9 +56,7 @@ val user = retry {
 Retry only network failures:
 
 ```kotlin
-val user = retry(
-    retryIf = { it is IOException }
-) {
+val user = retry(retryIf = { it is IOException }) {
     api.getUser()
 }
 ```
@@ -66,78 +68,79 @@ val user = retry(
     maxAttempts = 5,
     backoff = ExponentialBackoff(
         initialDelay = 100.milliseconds,
-        stepMultiplier = 2.0
+        stepMultiplier = 2.0,
     )
 ) {
     api.getUser()
 }
 ```
 
-Use retry context:
+Use the retry context:
 
 ```kotlin
-retry(maxAttempts = 5) {
-    logger.info("Attempt #${it.attempt}")
+retry(maxAttempts = 3) { ctx ->
+    logger.info("Attempt #${ctx.attempt}")
+
+    ctx.lastThrowable?.let {
+        logger.warn(it) { "Previous attempt failed" }
+    }
+
     uploadFile()
 }
 ```
 
-Or inspect the previous failure:
+---
 
-```kotlin
-retry { ctx ->
-    ctx.lastThrowable?.let {
-        logger.warn(it) { "Retrying..." }
-    }
+## Why RetryKt?
 
-    connect()
-}
-```
+Both `retry()` and `retryBlocking()` provide the same capabilities:
+
+- Retry context (`attempt`, `lastThrowable`)
+- Built-in backoff strategies
+- Support of custom backoff implementations
+- Pluggable jitter
+- Retry predicates
+- Coroutine cancellation support
 
 ---
 
-# Backoff Strategies
+## Backoff
 
 Built-in implementations:
 
 ```kotlin
-NoBackoff(default)
-ConstantBackoff
-LinearBackoff
-ExponentialBackoff
+NoBackoff          // 0ms
+ConstantBackoff    // 100ms, 100ms, 100ms
+LinearBackoff      // 100ms, 200ms, 300ms
+ExponentialBackoff // 100ms, 200ms, 400ms
 ```
 
-All strategies support custom jitter.
-
----
-
-# Custom Backoff
+Custom implementations are also supported.
 
 ```kotlin
 class FibonacciBackoff : Backoff {
+
     override fun nextDelay(attempt: Int): Duration {
         // ...
     }
 }
 ```
 
-Then:
-
 ```kotlin
 retry(backoff = FibonacciBackoff()) {
-    sync()
+    task()
 }
 ```
 
 ---
 
-# Jitter
+## Jitter
 
-Randomize delays to avoid synchronized retries.
+Avoid synchronized retries by randomizing delays.
 
 ```kotlin
-ExponentialBackoff(
-    initialDelay = 200.milliseconds,
+LinearBackoff(
+    step = 200.milliseconds,
     jitter = RandomJitter(100.milliseconds)
 )
 ```
@@ -146,6 +149,7 @@ Or implement your own:
 
 ```kotlin
 class MyJitter : Jitter {
+
     override fun apply(delay: Duration): Duration {
         // ...
     }
@@ -154,7 +158,7 @@ class MyJitter : Jitter {
 
 ---
 
-# Retry Conditions
+## Retry Predicates
 
 Retry only selected exceptions.
 
@@ -166,25 +170,122 @@ retry(retryIf = { it is IOException || it is TimeoutException }) {
 
 ---
 
-# Retry Context
+## Coroutines
 
-Every retry execution has access to:
+Use `retry()` in coroutine-based code.
+
+### Ktor Client
 
 ```kotlin
-attempt       // Current attempt number.
-lastThrowable // The exception from the previous attempt.
+val user = retry(retryIf = { it is IOException }) {
+    client.get("/users/$id").body<User>()
+}
 ```
 
+### Repository
+
+```kotlin
+class UserRepository(private val api: UserApi) {
+
+    suspend fun getUser(id: Long): User {
+        return retry(backoff = LinearBackoff(200.milliseconds)) {
+            api.getUser(id)
+        }
+    }
+}
+```
+
+### Flow
+
+```kotlin
+flow {
+    emit(
+        retry {
+            api.loadConfiguration()
+        }
+    )
+}
+```
+
+Typical use cases include:
+
+| Platform             | Examples                                                 |
+|----------------------|----------------------------------------------------------|
+| Kotlin Multiplatform | Shared business logic                                    |
+| Android              | ViewModel, Repository, DataStore                         |
+| Server               | Ktor, suspend services, coroutine-based database clients |
+| Desktop              | Compose Multiplatform                                    |
+| CLI                  | Coroutine-based tools and scripts                        |
+
 ---
 
-# Cancellation
+## Blocking Code
 
-`CancellationException` is never retried.
+Use `retryBlocking()` when the execution context is synchronous and a `suspend` function cannot be called.
 
-Coroutine cancellation always propagates immediately.
+### Caffeine CacheLoader (JVM)
+
+```kotlin
+val cache = Caffeine.newBuilder()
+    .build<String, User> { id ->
+        retryBlocking {
+            api.loadUser(id)
+        }
+    }
+```
+
+The callback signature is defined by the library and cannot be `suspend`.
+
+### Android WorkManager
+
+```kotlin
+class SyncWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
+
+    override fun doWork(): Result {
+        retryBlocking {
+            uploadPendingFiles()
+        }
+
+        return Result.success()
+    }
+}
+```
+
+The callback signature is defined by the Android framework and cannot be `suspend`.
+
+### Kotlin/Native C callback
+
+```kotlin
+// Pseudo code
+
+val callback = staticCFunction { chunk ->
+
+    retryBlocking {
+        api.send(chunk)
+    }
+}
+```
+
+The callback signature is defined by the native library and cannot be `suspend`.
+
+Typical use cases include:
+
+| Platform             | Examples                                           |
+|----------------------|----------------------------------------------------|
+| JVM                  | Cache loaders, HTTP clients, JDBC, file I/O        |
+| Android              | WorkManager, Binder services, blocking Room DAOs   |
+| Kotlin/Native        | C callbacks, POSIX APIs, platform SDKs             |
+| Kotlin Multiplatform | File systems, embedded databases, synchronous SDKs |
+| CLI/Desktop          | Configuration files, external processes            |
 
 ---
 
-# License
+## Coroutine Cancellation
+
+`CancellationException` is never retried and is always propagated immediately.
+
+---
+
+## License
 
 Apache License 2.0
