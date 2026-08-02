@@ -1,4 +1,4 @@
-name: Maven Central Publish
+name: Publish to Maven Central
 
 on:
   release:
@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   publish:
-    name: Build and publish release
+    name: Publish release
     runs-on: macos-latest
 
     steps:
@@ -36,9 +36,6 @@ jobs:
           key: ${{ runner.os }}-konan-${{ hashFiles('**/*.gradle*', '**/gradle.properties', '**/*.kt') }}
           restore-keys: |
             ${{ runner.os }}-konan-
-
-      - name: Build all targets
-        run: ./gradlew build --no-configuration-cache
 
       - name: Publish to Maven Central
         run: ./gradlew publishToMavenCentral --no-configuration-cache

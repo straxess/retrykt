@@ -11,8 +11,8 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build and test (${{ matrix.target }})
+  test:
+    name: Test (${{ matrix.target }})
     strategy:
       fail-fast: false
       matrix:
@@ -46,8 +46,6 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          cache-disabled: false
 
       - name: Cache Kotlin Native
         uses: actions/cache@v4
@@ -60,27 +58,3 @@ jobs:
 
       - name: Run tests
         run: ./gradlew ${{ matrix.target }} --no-configuration-cache
-
-  build-all:
-    name: Build all targets
-    runs-on: ubuntu-latest
-    needs: build
-
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Validate Gradle Wrapper
-        uses: gradle/actions/wrapper-validation@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Build
-        run: ./gradlew build --no-configuration-cache
