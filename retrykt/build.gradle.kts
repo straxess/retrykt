@@ -26,8 +26,13 @@ kotlin {
             jvmTarget = JvmTarget.JVM_11
         }
     }
+
     iosArm64()
     iosSimulatorArm64()
+
+    macosArm64()
+    macosX64()
+
     linuxX64()
 
     sourceSets {
