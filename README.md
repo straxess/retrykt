@@ -2,16 +2,23 @@
 
 > A lightweight Kotlin Multiplatform retry library with pluggable backoff strategies.
 
+```kotlin
+val result = retry {
+    api.call()
+}
+```
+
 ## Features
 
 - Kotlin Multiplatform
-- Coroutine-first API
-- `retry()` and `retryBlocking()`
 - JVM / Android / iOS / macOS / Linux
-- Pluggable Backoff
-- Pluggable Jitter
-- Retry predicates
-- Retry context
+- `retry()` and `retryBlocking()`
+- Coroutine and blocking APIs
+- Built-in and custom backoff implementations
+- Built-in and custom jitter implementations
+- Custom retry predicates
+- Retry context (`attempt`, `lastThrowable`)
+- Coroutine cancellation support
 - Zero dependencies
 
 ---
@@ -88,19 +95,6 @@ retry(maxAttempts = 3) { ctx ->
     uploadFile()
 }
 ```
-
----
-
-## Why RetryKt?
-
-Both `retry()` and `retryBlocking()` provide the same capabilities:
-
-- Retry context (`attempt`, `lastThrowable`)
-- Built-in backoff strategies
-- Support of custom backoff implementations
-- Pluggable jitter
-- Retry predicates
-- Coroutine cancellation support
 
 ---
 
