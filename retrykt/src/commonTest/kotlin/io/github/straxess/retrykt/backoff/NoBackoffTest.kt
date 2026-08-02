@@ -18,23 +18,3 @@ class NoBackoffTest {
         assertEquals(Duration.ZERO, secondDelay)
     }
 }
-
-
-/*
-io
-└── github
-    └── straxess
-        └── retrykt
-            ├── Retry.kt
-            ├── backoff
-            │   ├── Backoff.kt
-            │   ├── ConstantBackoff.kt
-            │   ├── ExponentialBackoff.kt
-            │   ├── LinearBackoff.kt
-            │   └── NoBackoff.kt
-            └── jitter
-                ├── ConstantJitter.kt
-                ├── Jitter.kt
-                ├── NoJitter.kt
-                └── RandomJitter.kt
- */
