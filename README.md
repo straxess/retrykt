@@ -8,6 +8,18 @@ val result = retry {
 }
 ```
 
+## Why RetryKt?
+
+RetryKt provides a consistent retry model across Kotlin Multiplatform.
+
+Whether your code is coroutine-based or synchronous, the same concepts and configuration apply.
+
+- One retry model for both `retry()` and `retryBlocking()`
+- First-class Kotlin Multiplatform support
+- Fully customizable backoff and jitter implementations
+- Retry context available on every attempt
+- Zero dependencies
+
 ## Features
 
 - Kotlin Multiplatform
@@ -36,6 +48,7 @@ dependencies {
 ### Maven
 
 ```xml
+
 <dependency>
     <groupId>io.github.straxess</groupId>
     <artifactId>retrykt</artifactId>
