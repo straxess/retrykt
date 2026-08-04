@@ -1,10 +1,7 @@
 package io.github.straxess.retrykt
 
-import io.github.straxess.retrykt.backoff.Backoff
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.*
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
 
 class RetryBlockingTest {
 
@@ -221,34 +218,12 @@ class RetryBlockingTest {
         val attempts = mutableListOf<Int>()
 
         retryBlocking(onRetry = { attempts += it.context.attempt }) {
-            when (it.attempt) {
-                1 -> throw IllegalStateException()
-                2 -> throw IllegalStateException()
-                else -> {}
+            if (it.attempt < 3) {
+                throw IllegalStateException()
             }
         }
 
         assertEquals(listOf(1, 2), attempts)
-    }
-
-    @Test
-    fun `onRetry receives nextDelay`() {
-        val nextDelays = mutableListOf<Duration>()
-
-        retryBlocking(
-            onRetry = { nextDelays += it.plan.nextDelay },
-            backoff = object : Backoff {
-                override fun nextDelay(attempt: Int) = 100.milliseconds * attempt
-            }
-        ) {
-            when (it.attempt) {
-                1 -> throw IllegalStateException()
-                2 -> throw IllegalStateException()
-                else -> {}
-            }
-        }
-
-        assertEquals(listOf(100.milliseconds, 200.milliseconds), nextDelays)
     }
 
     @Test

@@ -242,10 +242,8 @@ class RetryTest {
         val attempts = mutableListOf<Int>()
 
         retry(onRetry = { attempts += it.context.attempt }) {
-            when (it.attempt) {
-                1 -> throw IllegalStateException()
-                2 -> throw IllegalStateException()
-                else -> {}
+            if (it.attempt < 3) {
+                throw IllegalStateException()
             }
         }
 
@@ -262,10 +260,8 @@ class RetryTest {
                 override fun nextDelay(attempt: Int) = 100.milliseconds * attempt
             }
         ) {
-            when (it.attempt) {
-                1 -> throw IllegalStateException()
-                2 -> throw IllegalStateException()
-                else -> {}
+            if (it.attempt < 3) {
+                throw IllegalStateException()
             }
         }
 
