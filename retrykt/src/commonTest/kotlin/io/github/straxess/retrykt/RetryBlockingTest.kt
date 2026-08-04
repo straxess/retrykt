@@ -1,7 +1,10 @@
 package io.github.straxess.retrykt
 
+import io.github.straxess.retrykt.backoff.Backoff
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.*
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 class RetryBlockingTest {
 
@@ -169,7 +172,8 @@ class RetryBlockingTest {
 
         retryBlocking(
             maxAttempts = 3,
-            shouldRetry = { it is IllegalStateException || it is IllegalArgumentException }) {
+            shouldRetry = { it is IllegalStateException || it is IllegalArgumentException }
+        ) {
             previous += it.lastThrowable
 
             when (it.attempt) {
@@ -190,5 +194,78 @@ class RetryBlockingTest {
         assertFailsWith<IllegalArgumentException> {
             retryBlocking(maxAttempts = 0) {}
         }
+    }
+
+    @Test
+    fun `onRetry receives current failure`() {
+        val first = IllegalStateException()
+        val second = IllegalArgumentException()
+
+        val failures = mutableListOf<Throwable?>()
+
+        retryBlocking(onRetry = { failures += it.context.lastThrowable }) {
+            when (it.attempt) {
+                1 -> throw first
+                2 -> throw second
+                else -> {}
+            }
+        }
+
+        assertEquals(2, failures.size)
+        assertSame(first, failures[0])
+        assertSame(second, failures[1])
+    }
+
+    @Test
+    fun `onRetry receives current attempt`() {
+        val attempts = mutableListOf<Int>()
+
+        retryBlocking(onRetry = { attempts += it.context.attempt }) {
+            when (it.attempt) {
+                1 -> throw IllegalStateException()
+                2 -> throw IllegalStateException()
+                else -> {}
+            }
+        }
+
+        assertEquals(listOf(1, 2), attempts)
+    }
+
+    @Test
+    fun `onRetry receives nextDelay`() {
+        val nextDelays = mutableListOf<Duration>()
+
+        retryBlocking(
+            onRetry = { nextDelays += it.plan.nextDelay },
+            backoff = object : Backoff {
+                override fun nextDelay(attempt: Int) = 100.milliseconds * attempt
+            }
+        ) {
+            when (it.attempt) {
+                1 -> throw IllegalStateException()
+                2 -> throw IllegalStateException()
+                else -> {}
+            }
+        }
+
+        assertEquals(listOf(100.milliseconds, 200.milliseconds), nextDelays)
+    }
+
+    @Test
+    fun `onRetry is called before next attempt`() {
+        val events = mutableListOf<String>()
+
+        retryBlocking(onRetry = { events += "retry-${it.context.attempt}" }) {
+            events += "attempt-${it.attempt}"
+
+            if (it.attempt < 3) {
+                throw IllegalStateException()
+            }
+        }
+
+        assertEquals(
+            listOf("attempt-1", "retry-1", "attempt-2", "retry-2", "attempt-3"),
+            events
+        )
     }
 }

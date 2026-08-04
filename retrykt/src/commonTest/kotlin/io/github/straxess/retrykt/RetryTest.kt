@@ -6,6 +6,7 @@ import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.*
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 class RetryTest {
@@ -214,5 +215,78 @@ class RetryTest {
         assertFailsWith<IllegalArgumentException> {
             retry(maxAttempts = 0) {}
         }
+    }
+
+    @Test
+    fun `onRetry receives current failure`() = runTest {
+        val first = IllegalStateException()
+        val second = IllegalArgumentException()
+
+        val failures = mutableListOf<Throwable?>()
+
+        retry(onRetry = { failures += it.context.lastThrowable }) {
+            when (it.attempt) {
+                1 -> throw first
+                2 -> throw second
+                else -> {}
+            }
+        }
+
+        assertEquals(2, failures.size)
+        assertSame(first, failures[0])
+        assertSame(second, failures[1])
+    }
+
+    @Test
+    fun `onRetry receives current attempt`() = runTest {
+        val attempts = mutableListOf<Int>()
+
+        retry(onRetry = { attempts += it.context.attempt }) {
+            when (it.attempt) {
+                1 -> throw IllegalStateException()
+                2 -> throw IllegalStateException()
+                else -> {}
+            }
+        }
+
+        assertEquals(listOf(1, 2), attempts)
+    }
+
+    @Test
+    fun `onRetry receives nextDelay`() = runTest {
+        val nextDelays = mutableListOf<Duration>()
+
+        retry(
+            onRetry = { nextDelays += it.plan.nextDelay },
+            backoff = object : Backoff {
+                override fun nextDelay(attempt: Int) = 100.milliseconds * attempt
+            }
+        ) {
+            when (it.attempt) {
+                1 -> throw IllegalStateException()
+                2 -> throw IllegalStateException()
+                else -> {}
+            }
+        }
+
+        assertEquals(listOf(100.milliseconds, 200.milliseconds), nextDelays)
+    }
+
+    @Test
+    fun `onRetry is called before next attempt`() = runTest {
+        val events = mutableListOf<String>()
+
+        retry(onRetry = { events += "retry-${it.context.attempt}" }) {
+            events += "attempt-${it.attempt}"
+
+            if (it.attempt < 3) {
+                throw IllegalStateException()
+            }
+        }
+
+        assertEquals(
+            listOf("attempt-1", "retry-1", "attempt-2", "retry-2", "attempt-3"),
+            events
+        )
     }
 }

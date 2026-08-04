@@ -29,6 +29,7 @@ Whether your code is coroutine-based or synchronous, the same concepts and confi
 - Built-in and custom backoff implementations
 - Built-in and custom jitter implementations
 - Custom retry predicates
+- Observe retry events with `onRetry`
 - Retry context (`attempt`, `lastThrowable`)
 - Coroutine cancellation support
 - Zero dependencies
@@ -121,6 +122,19 @@ retry(maxAttempts = 3) { ctx ->
 
     uploadFile()
 }
+```
+
+You can observe retry attempts using the `onRetry` callback.
+
+```kotlin
+retry(
+    onRetry = {
+        log.info("Attempt ${it.context.attempt} failed. Retrying in ${it.plan.nextDelay}.")
+    }
+) {
+    fetchData()
+}
+
 ```
 
 ---

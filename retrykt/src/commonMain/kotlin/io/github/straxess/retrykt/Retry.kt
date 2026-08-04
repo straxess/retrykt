@@ -6,10 +6,17 @@ import io.github.straxess.retrykt.internal.sleep
 import kotlinx.coroutines.delay
 import kotlin.coroutines.cancellation.CancellationException
 
+/**
+ * Retries the given [task] until it succeeds or the retry policy is exhausted.
+ *
+ * Note: [CancellationException] is never retried and is always rethrown immediately,
+ * including in [retryBlocking], to preserve coroutine cancellation semantics.
+ */
 public suspend fun <T> retry(
     maxAttempts: Int = Int.MAX_VALUE,
     backoff: Backoff = NoBackoff,
     shouldRetry: (Throwable) -> Boolean = { true },
+    onRetry: suspend (RetryEvent) -> Unit = {},
     task: suspend (RetryContext) -> T
 ): T {
     require(maxAttempts > 0) {
@@ -37,16 +44,29 @@ public suspend fun <T> retry(
 
             lastThrowable = t
             val delay = backoff.nextDelay(attempt)
+
+            val retryContext = RetryContext(attempt, maxAttempts, lastThrowable)
+            val retryPlan = RetryPlan(delay)
+            val retryEvent = RetryEvent(retryContext, retryPlan)
+            onRetry(retryEvent)
+
             delay(delay)
             attempt++
         }
     }
 }
 
+/**
+ * Retries the given [task] until it succeeds or the retry policy is exhausted.
+ *
+ * Note: [CancellationException] is never retried and is always rethrown immediately,
+ * including in [retryBlocking], to preserve coroutine cancellation semantics.
+ */
 public fun <T> retryBlocking(
     maxAttempts: Int = Int.MAX_VALUE,
     backoff: Backoff = NoBackoff,
     shouldRetry: (Throwable) -> Boolean = { true },
+    onRetry: (RetryEvent) -> Unit = {},
     task: (RetryContext) -> T
 ): T {
     require(maxAttempts > 0) {
@@ -74,27 +94,14 @@ public fun <T> retryBlocking(
 
             lastThrowable = t
             val delay = backoff.nextDelay(attempt)
+
+            val retryContext = RetryContext(attempt, maxAttempts, lastThrowable)
+            val retryPlan = RetryPlan(delay)
+            val retryEvent = RetryEvent(retryContext, retryPlan)
+            onRetry(retryEvent)
+
             sleep(delay)
             attempt++
         }
     }
 }
-
-public class RetryContext internal constructor(
-
-    /**
-     * Current attempt number. Starts from 1.
-     */
-    public val attempt: Int,
-
-    /**
-     * Maximum allowed attempts.
-     */
-    public val maxAttempts: Int,
-
-    /**
-     * Exception from the previous failed attempt.
-     * Null on the first attempt.
-     */
-    public val lastThrowable: Throwable?
-)
