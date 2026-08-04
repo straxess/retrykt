@@ -81,12 +81,7 @@ class RetryTest {
     @Test
     fun `always rethrows CancellationException`() = runTest {
         assertFailsWith<CancellationException> {
-            retry(
-                shouldRetry = {
-                    error("should not be called")
-                    it is CancellationException
-                }
-            ) {
+            retry(shouldRetry = { error("should not be called") }) {
                 throw CancellationException()
             }
         }

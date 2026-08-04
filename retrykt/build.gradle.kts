@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -11,6 +12,7 @@ version = "0.1.0-alpha.2"
 
 kotlin {
     explicitApi()
+
     jvm()
     androidLibrary {
         namespace = group.toString()
@@ -27,13 +29,24 @@ kotlin {
         }
     }
 
+    iosX64()
     iosArm64()
     iosSimulatorArm64()
 
     macosArm64()
-    macosX64()
+
+    mingwX64()
 
     linuxX64()
+    linuxArm64()
+
+    js {
+        nodejs()
+    }
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        nodejs()
+    }
 
     sourceSets {
         commonMain.dependencies {

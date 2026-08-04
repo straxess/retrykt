@@ -16,6 +16,7 @@ Whether your code is coroutine-based or synchronous, the same concepts and confi
 
 - One retry model for both `retry()` and `retryBlocking()`
 - First-class Kotlin Multiplatform support
+- Supports JVM, Android, Apple, Linux, Windows, JavaScript, and WebAssembly
 - Fully customizable backoff and jitter implementations
 - Retry context available on every attempt
 - Zero dependencies
@@ -23,7 +24,6 @@ Whether your code is coroutine-based or synchronous, the same concepts and confi
 ## Features
 
 - Kotlin Multiplatform
-- JVM / Android / iOS / macOS / Linux
 - `retry()` and `retryBlocking()`
 - Coroutine and blocking APIs
 - Built-in and custom backoff implementations
@@ -32,6 +32,19 @@ Whether your code is coroutine-based or synchronous, the same concepts and confi
 - Retry context (`attempt`, `lastThrowable`)
 - Coroutine cancellation support
 - Zero dependencies
+
+## Supported Platforms
+
+RetryKt is built with Kotlin Multiplatform and supports:
+
+- JVM
+- Android
+- iOS
+- macOS
+- Linux
+- Windows (MinGW)
+- JavaScript
+- WebAssembly (WasmJs)
 
 ---
 

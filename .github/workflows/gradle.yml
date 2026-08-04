@@ -17,18 +17,27 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: iosSimulatorArm64Test
-            os: macos-latest
           - target: jvmTest
-            os: ubuntu-latest
-          - target: linuxX64Test
             os: ubuntu-latest
           - target: testAndroidHostTest
             os: ubuntu-latest
+
           - target: macosArm64Test
             os: macos-latest
-          - target: macosX64Test
-            os: macos-26-intel
+          - target: iosSimulatorArm64Test
+            os: macos-latest
+          - target: iosX64Test
+            os: macos-latest
+
+          - target: mingwX64Test
+            os: windows-latest
+          - target: linuxX64Test
+            os: ubuntu-latest
+
+          - target: jsNodeTest
+            os: ubuntu-latest
+          - target: wasmJsNodeTest
+            os: ubuntu-latest
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -48,6 +57,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Cache Kotlin Native
+        if: runner.os != 'Windows'
         uses: actions/cache@v4
         with:
           path: |
