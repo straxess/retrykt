@@ -34,7 +34,7 @@ class RetryBlockingAndroidHostTest {
     }
 
     @Test
-    fun `onRetry receives nextDelay`() {
+    fun `onRetryAttempt receives nextDelay`() {
         val nextDelays = mutableListOf<Duration>()
 
         retryBlocking(

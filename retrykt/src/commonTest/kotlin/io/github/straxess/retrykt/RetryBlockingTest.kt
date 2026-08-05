@@ -233,24 +233,6 @@ class RetryBlockingTest {
     }
 
     @Test
-    fun `onRetryAttempt receives nextDelay`() {
-        val nextDelays = mutableListOf<Duration>()
-
-        retryBlocking(
-            onRetryAttempt = { nextDelays += it.plan.nextDelay },
-            backoff = object : Backoff {
-                override fun nextDelay(attempt: Int) = 100.milliseconds * attempt
-            }
-        ) {
-            if (it.attempt < 3) {
-                throw IllegalStateException()
-            }
-        }
-
-        assertEquals(listOf(100.milliseconds, 200.milliseconds), nextDelays)
-    }
-
-    @Test
     fun `onRetryAttempt is called before next attempt`() {
         val events = mutableListOf<String>()
 
