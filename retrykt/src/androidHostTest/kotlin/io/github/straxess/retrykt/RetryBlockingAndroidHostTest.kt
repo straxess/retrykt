@@ -38,7 +38,7 @@ class RetryBlockingAndroidHostTest {
         val nextDelays = mutableListOf<Duration>()
 
         retryBlocking(
-            onRetry = { nextDelays += it.plan.nextDelay },
+            onRetryAttempt = { nextDelays += it.plan.nextDelay },
             backoff = object : Backoff {
                 override fun nextDelay(attempt: Int) = 100.milliseconds * attempt
             }

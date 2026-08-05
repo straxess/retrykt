@@ -9,64 +9,65 @@ import kotlin.coroutines.cancellation.CancellationException
 /**
  * Retries the given [task] until it succeeds or the retry policy is exhausted.
  *
- * Note: [CancellationException] is never retried and is always rethrown immediately,
- * including in [retryBlocking], to preserve coroutine cancellation semantics.
+ * [CancellationException] is never retried and is rethrown immediately to preserve coroutine cancellation semantics.
  */
 public suspend fun <T> retry(
     maxAttempts: Int = Int.MAX_VALUE,
     backoff: Backoff = NoBackoff,
-    shouldRetry: (Throwable) -> Boolean = { true },
-    onRetry: suspend (RetryEvent) -> Unit = {},
-    task: suspend (RetryContext) -> T
+    retryOn: RetryOn<T> = RetryOn.standard(),
+    onRetryAttempt: suspend (RetryEvent<T>) -> Unit = {},
+    task: suspend (RetryContext) -> T,
 ): T {
     require(maxAttempts > 0) {
         "maxAttempts must be greater than zero."
     }
 
     var attempt = 1
-    var lastThrowable: Throwable? = null
     while (true) {
-        try {
-            val retryContext = RetryContext(attempt, maxAttempts, lastThrowable)
-            return task(retryContext)
+        val retryContext = RetryContext(attempt, maxAttempts)
+
+        val outcome = try {
+            val returned = task(retryContext)
+            AttemptOutcome.Returned(returned)
         } catch (t: Throwable) {
             if (t is CancellationException) {
                 throw t
             }
 
-            if (attempt >= maxAttempts) {
-                throw t
-            }
-
-            if (!shouldRetry(t)) {
-                throw t
-            }
-
-            lastThrowable = t
-            val delay = backoff.nextDelay(attempt)
-
-            val retryContext = RetryContext(attempt, maxAttempts, lastThrowable)
-            val retryPlan = RetryPlan(delay)
-            val retryEvent = RetryEvent(retryContext, retryPlan)
-            onRetry(retryEvent)
-
-            delay(delay)
-            attempt++
+            AttemptOutcome.Thrown(t)
         }
+
+        if (!retryOn.shouldRetry(outcome)) {
+            return when (outcome) {
+                is AttemptOutcome.Returned -> outcome.value
+                is AttemptOutcome.Thrown -> throw outcome.throwable
+            }
+        }
+
+        if (attempt == maxAttempts) {
+            throw RetryStoppedException(RetryStoppedReason.MaxAttemptsReached(maxAttempts))
+        }
+
+        val nextDelay = backoff.nextDelay(attempt)
+        val retryEvent = RetryEvent(outcome, retryContext, RetryPlan(nextDelay))
+        onRetryAttempt(retryEvent)
+
+        delay(nextDelay)
+        attempt++
     }
 }
+
 
 /**
  * Retries the given [task] until it succeeds or the retry policy is exhausted.
  *
- * Note: [CancellationException] is never retried and is always rethrown immediately,
- * including in [retryBlocking], to preserve coroutine cancellation semantics.
+ * [CancellationException] is never retried and is rethrown immediately.
  */
 public fun <T> retryBlocking(
     maxAttempts: Int = Int.MAX_VALUE,
     backoff: Backoff = NoBackoff,
-    shouldRetry: (Throwable) -> Boolean = { true },
-    onRetry: (RetryEvent) -> Unit = {},
+    retryOn: RetryOn<T> = RetryOn.standard(),
+    onRetryAttempt: (RetryEvent<T>) -> Unit = {},
     task: (RetryContext) -> T
 ): T {
     require(maxAttempts > 0) {
@@ -74,34 +75,36 @@ public fun <T> retryBlocking(
     }
 
     var attempt = 1
-    var lastThrowable: Throwable? = null
     while (true) {
-        try {
-            val retryContext = RetryContext(attempt, maxAttempts, lastThrowable)
-            return task(retryContext)
+        val retryContext = RetryContext(attempt, maxAttempts)
+
+        val outcome = try {
+            val returned = task(retryContext)
+            AttemptOutcome.Returned(returned)
         } catch (t: Throwable) {
             if (t is CancellationException) {
                 throw t
             }
 
-            if (attempt >= maxAttempts) {
-                throw t
-            }
-
-            if (!shouldRetry(t)) {
-                throw t
-            }
-
-            lastThrowable = t
-            val delay = backoff.nextDelay(attempt)
-
-            val retryContext = RetryContext(attempt, maxAttempts, lastThrowable)
-            val retryPlan = RetryPlan(delay)
-            val retryEvent = RetryEvent(retryContext, retryPlan)
-            onRetry(retryEvent)
-
-            sleep(delay)
-            attempt++
+            AttemptOutcome.Thrown(t)
         }
+
+        if (!retryOn.shouldRetry(outcome)) {
+            return when (outcome) {
+                is AttemptOutcome.Returned -> outcome.value
+                is AttemptOutcome.Thrown -> throw outcome.throwable
+            }
+        }
+
+        if (attempt == maxAttempts) {
+            throw RetryStoppedException(RetryStoppedReason.MaxAttemptsReached(maxAttempts))
+        }
+
+        val nextDelay = backoff.nextDelay(attempt)
+        val retryEvent = RetryEvent(outcome, retryContext, RetryPlan(nextDelay))
+        onRetryAttempt(retryEvent)
+
+        sleep(nextDelay)
+        attempt++
     }
 }

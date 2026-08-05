@@ -11,10 +11,4 @@ public class RetryContext internal constructor(
      * Maximum allowed attempts.
      */
     public val maxAttempts: Int,
-
-    /**
-     * Exception from the previous failed attempt.
-     * Null on the first attempt.
-     */
-    public val lastThrowable: Throwable?
 )

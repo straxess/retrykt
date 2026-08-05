@@ -1,11 +1,13 @@
 package io.github.straxess.retrykt
 
 /**
- * Event emitted after a failed attempt when another retry will be performed.
+ * Event emitted immediately before waiting for the next retry attempt.
  *
- * Contains the current retry [context] and the [plan] for the next attempt.
+ * Contains the outcome of the completed attempt,
+ * the current retry [context], and the [plan] for the next attempt.
  */
-public class RetryEvent internal constructor(
+public class RetryEvent<T> internal constructor(
+    public val outcome: AttemptOutcome<T>,
     public val context: RetryContext,
     public val plan: RetryPlan,
 )

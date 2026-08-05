@@ -19,6 +19,7 @@ Whether your code is coroutine-based or synchronous, the same concepts and confi
 - Supports JVM, Android, Apple, Linux, Windows, JavaScript, and WebAssembly
 - Fully customizable backoff and jitter implementations
 - Retry context available on every attempt
+- Explicit retry decisions with `RetryOn` and `AttemptOutcome`
 - Zero dependencies
 
 ## Features
@@ -28,9 +29,10 @@ Whether your code is coroutine-based or synchronous, the same concepts and confi
 - Coroutine and blocking APIs
 - Built-in and custom backoff implementations
 - Built-in and custom jitter implementations
-- Custom retry predicates
-- Observe retry events with `onRetry`
-- Retry context (`attempt`, `lastThrowable`)
+- Configurable retry policies with `RetryOn`
+- Fine-grained retry decisions with `AttemptOutcome`
+- Observe retry attempts with `onRetryAttempt`
+- Retry context
 - Coroutine cancellation support
 - Zero dependencies
 
@@ -90,8 +92,17 @@ val user = retry {
 Retry only network failures:
 
 ```kotlin
-val user = retry(shouldRetry = { it is IOException }) {
+val user = retry(retryOn = RetryOn.thrown { it is IOException }) {
     api.getUser()
+}
+```
+
+Retry when the operation succeeds but returns a retryable result:
+```kotlin
+val response = retry(
+    retryOn = RetryOn.returned { it.status == 503 }
+) {
+    api.getResponse()
 }
 ```
 
@@ -116,20 +127,16 @@ Use the retry context:
 retry(maxAttempts = 3) { ctx ->
     log.info("Attempt ${ctx.attempt}/${ctx.maxAttempts}")
 
-    ctx.lastThrowable?.let {
-        log.warn(it) { "Previous attempt failed" }
-    }
-
     uploadFile()
 }
 ```
 
-You can observe retry attempts using the `onRetry` callback.
+You can observe retry attempts using the `onRetryAttempt` callback.
 
 ```kotlin
 retry(
-    onRetry = {
-        log.info("Attempt ${it.context.attempt} failed. Retrying in ${it.plan.nextDelay}.")
+    onRetryAttempt = {
+        log.info("Retrying after attempt ${it.context.attempt}. Retrying in ${it.plan.nextDelay}.")
     }
 ) {
     fetchData()
@@ -193,12 +200,31 @@ class MyJitter : Jitter {
 
 ---
 
-## Retry Predicates
+## Retry Policies
 
-Retry only selected exceptions.
+Retry decisions are configured with `RetryOn`.
+
+A retry policy receives the outcome of each attempt and decides whether another attempt should be performed.
+
+By default, RetryKt retries thrown exceptions and returns successful results immediately.
 
 ```kotlin
-retry(shouldRetry = { it is IOException || it is TimeoutException }) {
+retry(retryOn = RetryOn.thrown { it is IOException || it is TimeoutException }) {
+    request()
+}
+```
+
+For advanced scenarios, use `RetryOn.outcome` to inspect both successful and failed attempts.
+
+```kotlin
+retry(
+    retryOn = RetryOn.outcome { outcome ->
+        when (outcome) {
+            is AttemptOutcome.Returned -> outcome.value.shouldRetry()
+            is AttemptOutcome.Thrown -> outcome.throwable is IOException
+        }
+    },
+) {
     request()
 }
 ```
@@ -212,7 +238,7 @@ Use `retry()` in coroutine-based code.
 ### Ktor Client
 
 ```kotlin
-val user = retry(shouldRetry = { it is IOException }) {
+val user = retry(retryOn = RetryOn.thrown { it is IOException }) {
     client.get("/users/$id").body<User>()
 }
 ```
