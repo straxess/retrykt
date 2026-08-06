@@ -5,10 +5,10 @@
 [![Kotlin Multiplatform](https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin)](https://kotlinlang.org/docs/multiplatform.html)
 [![License](https://img.shields.io/github/license/straxess/retrykt)](LICENSE)
 
-> A lightweight, dependency-free Kotlin Multiplatform retry library with coroutine and blocking APIs.
+> A lightweight Kotlin Multiplatform retry library with coroutine and blocking APIs.
 
 It provides a consistent retry model across Kotlin platforms with explicit retry policies, configurable backoff
-strategies, and zero runtime dependencies.
+strategies, and a minimal runtime footprint.
 
 RetryKt intentionally focuses on reliable retries instead of providing a complete resilience framework.
 
@@ -48,13 +48,14 @@ Retrying an operation is often more complex than calling `repeat(3)`.
 Production applications typically need:
 
 - Retry only specific failures
+- Retry exceptions or returned values
 - Retry based on returned values as well as exceptions
 - Configurable backoff strategies
 - Jitter to avoid synchronized retries
 - Coroutine cancellation awareness
 - A consistent API across Kotlin Multiplatform
 
-RetryKt provides these capabilities in a small, dependency-free library.
+RetryKt provides these capabilities in a small, focused library without framework-specific dependencies.
 
 Instead of writing ad-hoc retry loops, you define **what** should be retried (`RetryOn`) and **how** retries are
 scheduled (`Backoff`).
@@ -171,7 +172,7 @@ retry(
 
 Unlike many retry libraries that only inspect exceptions, RetryKt can also retry returned values.
 
-By default, RetryKt retries thrown exceptions and immediately returns values.
+By default, thrown exceptions are retried and returned values complete immediately.
 
 ### Retry thrown exceptions
 
@@ -297,7 +298,7 @@ RetryKt intentionally focuses on one problem: reliable retries.
 - Kotlin-first API
 - Kotlin Multiplatform support
 - Consistent coroutine and blocking APIs
-- Zero runtime dependencies
+- No framework-specific runtime dependencies
 - Explicit retry decisions
 - Small, composable building blocks
 - Predictable behavior
@@ -482,16 +483,16 @@ jitter, and retry callbacks.
 
 ## Supported Platforms
 
-| Platform             |
-|----------------------|
-| JVM                  |
-| Android              |
-| iOS                  |
-| macOS                |
-| Linux                |
-| Windows (MinGW)      |
-| JavaScript           |
-| WebAssembly (WasmJs) |
+| Platform             | Supported |
+|----------------------|:---------:|
+| JVM                  |    ✅     |
+| Android              |    ✅     |
+| iOS                  |    ✅     |
+| macOS                |    ✅     |
+| Linux                |    ✅     |
+| Windows (MinGW)      |    ✅     |
+| JavaScript           |    ✅     |
+| WebAssembly (WasmJs) |    ✅     |
 
 ---
 
