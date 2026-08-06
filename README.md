@@ -1,53 +1,64 @@
 # RetryKt
 
-> A lightweight Kotlin Multiplatform retry library with pluggable backoff strategies.
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.straxess/retrykt)](https://central.sonatype.com/artifact/io.github.straxess/retrykt)
+[![Build](https://github.com/straxess/retrykt/actions/workflows/gradle.yml/badge.svg)](https://github.com/straxess/retrykt/actions/workflows/gradle.yml)
+[![Kotlin Multiplatform](https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin)](https://kotlinlang.org/docs/multiplatform.html)
+[![License](https://img.shields.io/github/license/straxess/retrykt)](LICENSE)
+
+> A lightweight, dependency-free Kotlin Multiplatform retry library with coroutine and blocking APIs.
+
+It provides a consistent retry model across Kotlin platforms with explicit retry policies, configurable backoff
+strategies, and zero runtime dependencies.
+
+RetryKt intentionally focuses on reliable retries instead of providing a complete resilience framework.
 
 ```kotlin
-val result = retry {
-    api.call()
+val user = retry(
+    retryOn = RetryOn.thrown { it is IOException },
+    backoff = ExponentialBackoff(200.milliseconds),
+) {
+    api.getUser()
 }
 ```
 
+---
+
+## Table of Contents
+
+- [Why RetryKt?](#why-retrykt)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Retry Policies](#retry-policies)
+- [Backoff](#backoff)
+- [Jitter](#jitter)
+- [Design Goals](#design-goals)
+- [Coroutine API](#coroutine-api)
+- [Blocking API](#blocking-api)
+- [Coroutine Cancellation](#coroutine-cancellation)
+- [FAQ](#faq)
+- [Supported Platforms](#supported-platforms)
+- [License](#license)
+
+---
+
 ## Why RetryKt?
 
-RetryKt provides a consistent retry model across Kotlin Multiplatform.
+Retrying an operation is often more complex than calling `repeat(3)`.
 
-Whether your code is coroutine-based or synchronous, the same concepts and configuration apply.
+Production applications typically need:
 
-- One retry model for both `retry()` and `retryBlocking()`
-- First-class Kotlin Multiplatform support
-- Supports JVM, Android, Apple, Linux, Windows, JavaScript, and WebAssembly
-- Fully customizable backoff and jitter implementations
-- Retry context available on every attempt
-- Explicit retry decisions with `RetryOn` and `AttemptOutcome`
-- Zero dependencies
+- Retry only specific failures
+- Retry based on returned values as well as exceptions
+- Configurable backoff strategies
+- Jitter to avoid synchronized retries
+- Coroutine cancellation awareness
+- A consistent API across Kotlin Multiplatform
 
-## Features
+RetryKt provides these capabilities in a small, dependency-free library.
 
-- Kotlin Multiplatform
-- `retry()` and `retryBlocking()`
-- Coroutine and blocking APIs
-- Built-in and custom backoff implementations
-- Built-in and custom jitter implementations
-- Configurable retry policies with `RetryOn`
-- Fine-grained retry decisions with `AttemptOutcome`
-- Observe retry attempts with `onRetryAttempt`
-- Retry context
-- Coroutine cancellation support
-- Zero dependencies
+Instead of writing ad-hoc retry loops, you define **what** should be retried (`RetryOn`) and **how** retries are
+scheduled (`Backoff`).
 
-## Supported Platforms
-
-RetryKt is built with Kotlin Multiplatform and supports:
-
-- JVM
-- Android
-- iOS
-- macOS
-- Linux
-- Windows (MinGW)
-- JavaScript
-- WebAssembly (WasmJs)
 
 ---
 
@@ -81,7 +92,7 @@ dependencies {
 > Use `retry()` in suspend code.  
 > Use `retryBlocking()` everywhere else.
 
-Retry an HTTP request:
+### Retry an operation
 
 ```kotlin
 val user = retry {
@@ -89,24 +100,7 @@ val user = retry {
 }
 ```
 
-Retry only network failures:
-
-```kotlin
-val user = retry(retryOn = RetryOn.thrown { it is IOException }) {
-    api.getUser()
-}
-```
-
-Retry when the operation succeeds but returns a retryable result:
-```kotlin
-val response = retry(
-    retryOn = RetryOn.returned { it.status == 503 }
-) {
-    api.getResponse()
-}
-```
-
-Retry with exponential backoff:
+### Use exponential backoff
 
 ```kotlin
 val user = retry(
@@ -121,7 +115,31 @@ val user = retry(
 }
 ```
 
-Use the retry context:
+### Retry only specific exceptions
+
+```kotlin
+val user = retry(
+    retryOn = RetryOn.thrown { it is IOException },
+) {
+    api.getUser()
+}
+```
+
+### Retry returned values
+
+Sometimes an operation succeeds but returns a value that should be retried.
+
+```kotlin
+val response = retry(
+    retryOn = RetryOn.returned { it.status == 503 }
+) {
+    api.getResponse()
+}
+```
+
+### Access the retry context
+
+Every attempt receives a `RetryContext`.
 
 ```kotlin
 retry(maxAttempts = 3) { ctx ->
@@ -131,70 +149,17 @@ retry(maxAttempts = 3) { ctx ->
 }
 ```
 
-You can observe retry attempts using the `onRetryAttempt` callback.
+### Observe retry attempts
+
+The `onRetryAttempt` callback is invoked immediately before the next retry is scheduled.
 
 ```kotlin
 retry(
-    onRetryAttempt = {
-        log.info("Retrying after attempt ${it.context.attempt}. Retrying in ${it.plan.nextDelay}.")
-    }
+    onRetryAttempt = { event ->
+        log.info("Attempt ${event.context.attempt} failed. Retrying in ${event.plan.nextDelay}.")
+    },
 ) {
     fetchData()
-}
-
-```
-
----
-
-## Backoff
-
-Built-in implementations:
-
-```kotlin
-NoBackoff          // 0ms
-ConstantBackoff    // 100ms, 100ms, 100ms
-LinearBackoff      // 100ms, 200ms, 300ms
-ExponentialBackoff // 100ms, 200ms, 400ms
-```
-
-Custom implementations are also supported.
-
-```kotlin
-class FibonacciBackoff : Backoff {
-
-    override fun nextDelay(attempt: Int): Duration {
-        // ...
-    }
-}
-```
-
-```kotlin
-retry(backoff = FibonacciBackoff()) {
-    task()
-}
-```
-
----
-
-## Jitter
-
-Avoid synchronized retries by randomizing delays.
-
-```kotlin
-LinearBackoff(
-    increment = 200.milliseconds,
-    jitter = RandomJitter(100.milliseconds)
-)
-```
-
-Or implement your own:
-
-```kotlin
-class MyJitter : Jitter {
-
-    override fun apply(delay: Duration): Duration {
-        // ...
-    }
 }
 ```
 
@@ -202,11 +167,15 @@ class MyJitter : Jitter {
 
 ## Retry Policies
 
-Retry decisions are configured with `RetryOn`.
+`RetryOn` defines whether another retry attempt should be performed based on the outcome of the previous attempt.
 
-A retry policy receives the outcome of each attempt and decides whether another attempt should be performed.
+Unlike many retry libraries that only inspect exceptions, RetryKt can also retry returned values.
 
-By default, RetryKt retries thrown exceptions and returns successful results immediately.
+By default, RetryKt retries thrown exceptions and immediately returns values.
+
+### Retry thrown exceptions
+
+Retry only network-related failures.
 
 ```kotlin
 retry(retryOn = RetryOn.thrown { it is IOException || it is TimeoutException }) {
@@ -214,7 +183,19 @@ retry(retryOn = RetryOn.thrown { it is IOException || it is TimeoutException }) 
 }
 ```
 
-For advanced scenarios, use `RetryOn.outcome` to inspect both successful and failed attempts.
+### Retry returned values
+
+Some APIs report temporary failures through return values rather than exceptions.
+
+```kotlin
+retry(retryOn = RetryOn.returned { it.status == 503 }) {
+    api.getResponse()
+}
+```
+
+### Retry based on the attempt outcome
+
+For advanced scenarios, inspect both successful and failed attempts.
 
 ```kotlin
 retry(
@@ -229,16 +210,124 @@ retry(
 }
 ```
 
+`AttemptOutcome` provides a unified model for retry decisions regardless of whether the operation completed normally or
+failed with an exception.
+
 ---
 
-## Coroutines
+## Backoff
+
+A backoff strategy determines how long RetryKt waits before the next attempt.
+
+Backoff implementations are stateless and can be safely reused.
+
+Built-in implementations:
+
+```kotlin
+NoBackoff          // 0ms
+ConstantBackoff    // 100ms, 100ms, 100ms
+LinearBackoff      // 100ms, 200ms, 300ms
+ExponentialBackoff // 100ms, 200ms, 400ms
+```
+
+Choose the strategy that matches your workload.
+
+| Strategy             | Typical use case                                  |
+|----------------------|---------------------------------------------------|
+| `NoBackoff`          | Tests, CPU-bound operations                       |
+| `ConstantBackoff`    | Fixed polling intervals                           |
+| `LinearBackoff`      | Gradually increasing load reduction               |
+| `ExponentialBackoff` | Network requests, cloud APIs, distributed systems |
+
+Custom implementations are supported.
+
+```kotlin
+class MyBackoff : Backoff {
+
+    override fun nextDelay(attempt: Int): Duration {
+        // ...
+    }
+}
+```
+
+```kotlin
+retry(backoff = MyBackoff()) {
+    task()
+}
+```
+
+---
+
+## Jitter
+
+Without jitter, many clients may retry at exactly the same time, creating additional load on the target system.
+
+Adding jitter randomizes delays between attempts.
+
+Jitter is applied after the backoff strategy computes the base delay.
+
+This helps distribute retries over time and reduces retry storms.
+
+```kotlin
+LinearBackoff(
+    increment = 200.milliseconds,
+    jitter = RandomJitter(100.milliseconds),
+)
+```
+
+RetryKt includes built-in jitter implementations and allows custom ones.
+
+```kotlin
+class MyJitter : Jitter {
+
+    override fun apply(delay: Duration): Duration {
+        // ...
+    }
+}
+```
+
+---
+
+## Design Goals
+
+RetryKt intentionally focuses on one problem: reliable retries.
+
+### Goals
+
+- Kotlin-first API
+- Kotlin Multiplatform support
+- Consistent coroutine and blocking APIs
+- Zero runtime dependencies
+- Explicit retry decisions
+- Small, composable building blocks
+- Predictable behavior
+
+### Non-goals
+
+RetryKt intentionally does **not** implement higher-level resilience patterns such as:
+
+- Circuit breakers
+- Rate limiting
+- Bulkheads
+- Service discovery
+- Metrics collection
+- Scheduling
+
+These concerns are better handled by dedicated libraries.
+
+---
+
+## Coroutine API
 
 Use `retry()` in coroutine-based code.
 
 ### Ktor Client
 
 ```kotlin
-val user = retry(retryOn = RetryOn.thrown { it is IOException }) {
+val user = retry(
+    retryOn = RetryOn.thrown { it is IOException },
+    backoff = ExponentialBackoff(200.milliseconds),
+) {
     client.get("/users/$id").body<User>()
 }
 ```
@@ -246,7 +335,9 @@ val user = retry(retryOn = RetryOn.thrown { it is IOException }) {
 ### Repository
 
 ```kotlin
-class UserRepository(private val api: UserApi) {
+class UserRepository(
+    private val api: UserApi,
+) {
 
     suspend fun getUser(id: Long): User {
         return retry(backoff = LinearBackoff(200.milliseconds)) {
@@ -256,35 +347,13 @@ class UserRepository(private val api: UserApi) {
 }
 ```
 
-### Flow
-
-```kotlin
-flow {
-    emit(
-        retry {
-            api.loadConfiguration()
-        }
-    )
-}
-```
-
-Typical use cases include:
-
-| Platform             | Examples                                                 |
-|----------------------|----------------------------------------------------------|
-| Kotlin Multiplatform | Shared business logic                                    |
-| Android              | ViewModel, Repository, DataStore                         |
-| Server               | Ktor, suspend services, coroutine-based database clients |
-| Desktop              | Compose Multiplatform                                    |
-| CLI                  | Coroutine-based tools and scripts                        |
-
 ---
 
-## Blocking Code
+## Blocking API
 
-Use `retryBlocking()` when the execution context is synchronous and a `suspend` function cannot be called.
+Use `retryBlocking()` whenever the execution context is synchronous and a `suspend` function cannot be called.
 
-### Caffeine CacheLoader (JVM)
+### JVM CacheLoader
 
 ```kotlin
 val cache = Caffeine.newBuilder()
@@ -295,12 +364,38 @@ val cache = Caffeine.newBuilder()
     }
 ```
 
-The callback signature is defined by the library and cannot be `suspend`.
+### Kotlin/Native C callback
+
+Kotlin/Native frequently integrates with C libraries through callbacks. Since callback signatures are defined by the
+native library, they cannot be `suspend`, making `retryBlocking()` a natural fit.
+
+Typical examples include integrations with:
+
+- libcurl
+- POSIX APIs
+- Platform SDKs
+- Other native C libraries
+
+```kotlin
+// Simplified example
+
+val callback = staticCFunction { chunk ->
+    retryBlocking(
+        retryOn = RetryOn.thrown { it is IOException },
+        backoff = ExponentialBackoff(100.milliseconds),
+    ) {
+        uploader.send(chunk)
+    }
+}
+```
 
 ### Android WorkManager
 
 ```kotlin
-class SyncWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
+class SyncWorker(
+    context: Context,
+    params: WorkerParameters,
+) : Worker(context, params) {
 
     override fun doWork(): Result {
         retryBlocking {
@@ -312,41 +407,94 @@ class SyncWorker(context: Context, params: WorkerParameters) : Worker(context, p
 }
 ```
 
-The callback signature is defined by the Android framework and cannot be `suspend`.
+Typical use cases:
 
-### Kotlin/Native C callback
-
-```kotlin
-// Pseudo code
-
-val callback = staticCFunction { chunk ->
-
-    retryBlocking {
-        api.send(chunk)
-    }
-}
-```
-
-The callback signature is defined by the native library and cannot be `suspend`.
-
-Typical use cases include:
-
-| Platform             | Examples                                           |
-|----------------------|----------------------------------------------------|
-| JVM                  | Cache loaders, HTTP clients, JDBC, file I/O        |
-| Android              | WorkManager, Binder services, blocking Room DAOs   |
-| Kotlin/Native        | C callbacks, POSIX APIs, platform SDKs             |
-| Kotlin Multiplatform | File systems, embedded databases, synchronous SDKs |
-| CLI/Desktop          | Configuration files, external processes            |
+| Platform      | Examples                                   |
+|---------------|--------------------------------------------|
+| JVM           | JDBC, cache loaders, blocking HTTP clients |
+| Android       | WorkManager, Binder services               |
+| Kotlin/Native | C callbacks, POSIX APIs                    |
+| Desktop / CLI | File I/O, external processes               |
 
 ---
 
 ## Coroutine Cancellation
 
-`CancellationException` is never retried and is always propagated immediately.
+`CancellationException` is never retried.
+
+Whenever a coroutine is canceled, RetryKt immediately propagates the exception without evaluating retry policies or
+scheduling another attempt.
+
+This ensures correct structured concurrency behavior and avoids delaying coroutine cancellation.
+
+---
+
+## FAQ
+
+### Why are there both `retry()` and `retryBlocking()`?
+
+Kotlin separates suspend and blocking execution models.
+
+RetryKt provides dedicated APIs for both while keeping the retry model identical.
+
+---
+
+### Can I retry successful results?
+
+Yes.
+
+Retry decisions are not limited to exceptions.
+
+Use `RetryOn.returned` or `RetryOn.outcome` to retry based on returned values.
+
+---
+
+### Can I implement my own backoff strategy?
+
+Yes.
+
+Implement the `Backoff` interface and pass your implementation to `retry()` or `retryBlocking()`.
+
+---
+
+### Can I implement my own jitter?
+
+Yes.
+
+Any implementation of `Jitter` can be plugged into a backoff strategy.
+
+---
+
+### Does RetryKt work on Kotlin Multiplatform?
+
+Yes.
+
+See [supported platforms](#supported-platforms)
+
+### Why not use Flow.retryWhen ()?
+
+`Flow.retryWhen()` only applies to Kotlin Flows.
+
+RetryKt works with any suspend or blocking operation and provides configurable retry policies, backoff strategies,
+jitter, and retry callbacks.
+
+---
+
+## Supported Platforms
+
+| Platform             |
+|----------------------|
+| JVM                  |
+| Android              |
+| iOS                  |
+| macOS                |
+| Linux                |
+| Windows (MinGW)      |
+| JavaScript           |
+| WebAssembly (WasmJs) |
 
 ---
 
 ## License
 
-Apache License 2.0
+Apache License 2.0.

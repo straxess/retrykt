@@ -1,4 +1,4 @@
-name: Kotlin Multiplatform CI
+name: Build
 
 on:
   push:

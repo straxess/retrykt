@@ -7,8 +7,8 @@ plugins {
     alias(libs.plugins.vanniktech.mavenPublish)
 }
 
-group = "io.github.straxess.retrykt"
-version = "0.1.0-alpha.4"
+group = "io.github.straxess"
+version = "0.1.0"
 
 kotlin {
     explicitApi()
