@@ -8,12 +8,17 @@ plugins {
 }
 
 group = "io.github.straxess"
-version = "0.1.0"
+version = "0.1.1"
 
 kotlin {
     explicitApi()
 
-    jvm()
+    jvmToolchain(17)
+    jvm {
+        compilerOptions {
+            jvmTarget = JvmTarget.JVM_1_8
+        }
+    }
     androidLibrary {
         namespace = group.toString()
         compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -96,8 +101,13 @@ mavenPublishing {
 
         scm {
             url = "https://github.com/straxess/retrykt"
-            connection = "scm:git:git://github.com/straxess/retrykt.git"
+            connection = "scm:git:https://github.com/straxess/retrykt.git"
             developerConnection = "scm:git:ssh://git@github.com/straxess/retrykt.git"
+        }
+
+        issueManagement {
+            system = "GitHub"
+            url = "https://github.com/straxess/retrykt/issues"
         }
     }
 }

@@ -27,6 +27,7 @@ val user = retry(
 
 - [Why RetryKt?](#why-retrykt)
 - [Installation](#installation)
+- [Compatibility](#compatibility)
 - [Quick Start](#quick-start)
 - [Retry Policies](#retry-policies)
 - [Backoff](#backoff)
@@ -83,6 +84,22 @@ dependencies {
     <version>...</version>
 </dependency>
 ```
+
+---
+
+## Compatibility
+
+RetryKt is tested against the following Kotlin and Kotlin Coroutines versions.
+
+| RetryKt Version | Kotlin Version | Kotlin Coroutines Version |
+|-----------------|----------------|---------------------------|
+| 0.1.x           | 2.3.x          | 1.10.x                    |
+
+### JVM Compatibility
+
+RetryKt JVM artifacts target Java 11 bytecode.
+
+The library is built with JDK 17 and supports Java 11+ runtimes.
 
 ---
 
@@ -483,16 +500,21 @@ jitter, and retry callbacks.
 
 ## Supported Platforms
 
-| Platform             | Supported |
-|----------------------|:---------:|
-| JVM                  |    ✅     |
-| Android              |    ✅     |
-| iOS                  |    ✅     |
-| macOS                |    ✅     |
-| Linux                |    ✅     |
-| Windows (MinGW)      |    ✅     |
-| JavaScript           |    ✅     |
-| WebAssembly (WasmJs) |    ✅     |
+RetryKt is built with Kotlin Multiplatform and supports the following targets:
+
+| Platform                      | Supported |
+|-------------------------------|-----------|
+| JVM                           | ✅        |
+| Android                       | ✅        |
+| iOS (x64)                     | ✅        |
+| iOS (ARM64)                   | ✅        |
+| iOS Simulator (Apple Silicon) | ✅        |
+| macOS (Apple Silicon)         | ✅        |
+| Windows                       | ✅        |
+| Linux x64                     | ✅        |
+| Linux ARM64                   | ✅        |
+| JavaScript                    | ✅        |
+| WebAssembly                   | ✅        |
 
 ---
 
