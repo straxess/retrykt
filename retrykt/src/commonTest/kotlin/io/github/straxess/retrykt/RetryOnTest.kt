@@ -5,9 +5,9 @@ import kotlin.test.*
 class RetryOnTest {
 
     @Test
-    fun `standard retries thrown outcome`() {
+    fun `default retries thrown outcome`() {
         val exception = IllegalStateException()
-        val retryOn = RetryOn.standard<String>()
+        val retryOn = RetryOn.default<String>()
 
         val actual = retryOn.shouldRetry(AttemptOutcome.Thrown(exception))
 
@@ -15,8 +15,8 @@ class RetryOnTest {
     }
 
     @Test
-    fun `standard does not retry returned outcome`() {
-        val retryOn = RetryOn.standard<String>()
+    fun `default does not retry returned outcome`() {
+        val retryOn = RetryOn.default<String>()
 
         val actual = retryOn.shouldRetry(AttemptOutcome.Returned("success"))
 

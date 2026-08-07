@@ -4,7 +4,7 @@ import kotlin.time.Duration
 
 public object NoJitter : Jitter {
 
-    override fun apply(baseDelay: Duration): Duration {
-        return baseDelay
+    override fun apply(rawDelay: Duration): Duration {
+        return rawDelay
     }
 }

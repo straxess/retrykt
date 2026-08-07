@@ -1,6 +1,5 @@
 package io.github.straxess.retrykt.backoff
 
-import io.github.straxess.retrykt.jitter.ConstantJitter
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -13,28 +12,13 @@ class ExponentialBackoffTest {
     fun `returns exponential delay`() {
         val backoff = ExponentialBackoff(10.seconds, 2.0)
 
-        val firstDelay = backoff.nextDelay(1)
-        val secondDelay = backoff.nextDelay(2)
-        val thirdDelay = backoff.nextDelay(3)
+        val firstDelay = backoff.nextDelay(BackoffContext(1, null))
+        val secondDelay = backoff.nextDelay(BackoffContext(2, null))
+        val thirdDelay = backoff.nextDelay(BackoffContext(3, null))
 
         assertEquals(10.seconds, firstDelay)
         assertEquals(20.seconds, secondDelay)
         assertEquals(40.seconds, thirdDelay)
-    }
-
-    @Test
-    fun `ExponentialBackoff applies jitter`() {
-        val backoff = ExponentialBackoff(
-            initialDelay = 10.seconds,
-            multiplier = 2.0,
-            jitter = ConstantJitter(100.milliseconds),
-        )
-
-        val firstDelay = backoff.nextDelay(1)
-        val secondDelay = backoff.nextDelay(2)
-
-        assertEquals(10.seconds + 100.milliseconds, firstDelay)
-        assertEquals(20.seconds + 100.milliseconds, secondDelay)
     }
 
     @Test
@@ -45,8 +29,11 @@ class ExponentialBackoffTest {
             maxDelay = 500.milliseconds,
         )
 
-        assertEquals(500.milliseconds, backoff.nextDelay(1))
-        assertEquals(500.milliseconds, backoff.nextDelay(2))
+        val firstDelay = backoff.nextDelay(BackoffContext(1, null))
+        val secondDelay = backoff.nextDelay(BackoffContext(2, null))
+
+        assertEquals(500.milliseconds, firstDelay)
+        assertEquals(500.milliseconds, secondDelay)
     }
 
     @Test
@@ -57,11 +44,11 @@ class ExponentialBackoffTest {
             maxDelay = 500.milliseconds,
         )
 
-        assertEquals(100.milliseconds, backoff.nextDelay(1))
-        assertEquals(200.milliseconds, backoff.nextDelay(2))
-        assertEquals(400.milliseconds, backoff.nextDelay(3))
-        assertEquals(500.milliseconds, backoff.nextDelay(4))
-        assertEquals(500.milliseconds, backoff.nextDelay(5))
+        assertEquals(100.milliseconds, backoff.nextDelay(BackoffContext(1, null)))
+        assertEquals(200.milliseconds, backoff.nextDelay(BackoffContext(2, null)))
+        assertEquals(400.milliseconds, backoff.nextDelay(BackoffContext(3, null)))
+        assertEquals(500.milliseconds, backoff.nextDelay(BackoffContext(4, null)))
+        assertEquals(500.milliseconds, backoff.nextDelay(BackoffContext(5, null)))
     }
 
     @Test

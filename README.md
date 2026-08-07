@@ -7,17 +7,22 @@
 
 > A lightweight Kotlin Multiplatform retry library with coroutine and blocking APIs.
 
-It provides a consistent retry model across Kotlin platforms with explicit retry policies, configurable backoff
-strategies, and a minimal runtime footprint.
+RetryKt provides a consistent retry model across Kotlin platforms with explicit retry policies, configurable backoff
+strategies, jitter, and a minimal runtime footprint.
 
 RetryKt intentionally focuses on reliable retries instead of providing a complete resilience framework.
 
 ```kotlin
-val user = retry(
+val user = retry {
+    api.getUser()
+}
+
+val response = retry(
     retryOn = RetryOn.thrown { it is IOException },
     backoff = ExponentialBackoff(200.milliseconds),
+    jitter = FullJitter,
 ) {
-    api.getUser()
+    api.removeUser(user)
 }
 ```
 
@@ -50,7 +55,6 @@ Production applications typically need:
 
 - Retry only specific failures
 - Retry exceptions or returned values
-- Retry based on returned values as well as exceptions
 - Configurable backoff strategies
 - Jitter to avoid synchronized retries
 - Coroutine cancellation awareness
@@ -59,8 +63,7 @@ Production applications typically need:
 RetryKt provides these capabilities in a small, focused library without framework-specific dependencies.
 
 Instead of writing ad-hoc retry loops, you define **what** should be retried (`RetryOn`) and **how** retries are
-scheduled (`Backoff`).
-
+scheduled (`Backoff` + `Jitter`).
 
 ---
 
@@ -127,9 +130,25 @@ val user = retry(
         initialDelay = 100.milliseconds,
         multiplier = 2.0,
         maxDelay = 10.seconds,
-    )
+    ),
 ) {
     api.getUser()
+}
+```
+
+### Add jitter
+
+Jitter is configured independently of the backoff strategy.
+
+```kotlin
+val response = retry(
+    backoff = ExponentialBackoff(
+        initialDelay = 200.milliseconds,
+        maxDelay = 10.seconds,
+    ),
+    jitter = FullJitter,
+) {
+    api.getResponse()
 }
 ```
 
@@ -149,7 +168,7 @@ Sometimes an operation succeeds but returns a value that should be retried.
 
 ```kotlin
 val response = retry(
-    retryOn = RetryOn.returned { it.status == 503 }
+    retryOn = RetryOn.returned { it.status == 503 },
 ) {
     api.getResponse()
 }
@@ -169,7 +188,7 @@ retry(maxAttempts = 3) { ctx ->
 
 ### Observe retry attempts
 
-The `onRetryAttempt` callback is invoked immediately before the next retry is scheduled.
+The `onRetryAttempt` callback is invoked after the retry delay has been calculated and immediately before the wait.
 
 ```kotlin
 retry(
@@ -235,34 +254,80 @@ failed with an exception.
 
 ## Backoff
 
-A backoff strategy determines how long RetryKt waits before the next attempt.
+A backoff strategy calculates the base delay before the next attempt.
 
-Backoff implementations are stateless and can be safely reused.
+Backoff and jitter are separate concepts:
 
-Built-in implementations:
+```text
+Backoff
+   ↓
+raw delay
+   ↓
+Jitter
+   ↓
+applied delay
+   ↓
+wait
+```
+
+This separation allows the same backoff strategy to be combined with different jitter strategies.
+
+Built-in backoff implementations include:
 
 ```kotlin
-NoBackoff          // 0ms
-ConstantBackoff    // 100ms, 100ms, 100ms
-LinearBackoff      // 100ms, 200ms, 300ms
-ExponentialBackoff // 100ms, 200ms, 400ms
+NoBackoff            // 0ms
+ConstantBackoff      // 100ms, 100ms, 100ms
+LinearBackoff        // 100ms, 200ms, 300ms
+ExponentialBackoff   // 100ms, 200ms, 400ms
+DecorrelatedBackoff  // randomized, based on the previous applied delay
 ```
 
 Choose the strategy that matches your workload.
 
-| Strategy             | Typical use case                                  |
-|----------------------|---------------------------------------------------|
-| `NoBackoff`          | Tests, CPU-bound operations                       |
-| `ConstantBackoff`    | Fixed polling intervals                           |
-| `LinearBackoff`      | Gradually increasing load reduction               |
-| `ExponentialBackoff` | Network requests, cloud APIs, distributed systems |
+| Strategy              | Typical use case                                                        |
+|-----------------------|-------------------------------------------------------------------------|
+| `NoBackoff`           | Tests, CPU-bound operations                                             |
+| `ConstantBackoff`     | Fixed polling intervals                                                 |
+| `LinearBackoff`       | Gradually increasing retry intervals                                    |
+| `ExponentialBackoff`  | Network requests, cloud APIs, distributed systems                       |
+| `DecorrelatedBackoff` | Distributed systems where randomized, decorrelated delays are desirable |
 
-Custom implementations are supported.
+### Exponential backoff
+
+```kotlin
+ExponentialBackoff(
+    initialDelay = 100.milliseconds,
+    multiplier = 2.0,
+    maxDelay = 10.seconds,
+)
+```
+
+### Decorrelated backoff
+
+`DecorrelatedBackoff` implements the AWS-style decorrelated jitter algorithm directly as a backoff strategy.
+
+It uses the actual delay applied before the previous retry attempt when calculating the next delay.
+
+```kotlin
+DecorrelatedBackoff(
+    initialDelay = 100.milliseconds,
+    maxDelay = 10.seconds,
+)
+```
+
+Because `DecorrelatedBackoff` already incorporates randomization, it is normally used with `NoJitter`.
+
+### Custom backoff
+
+Custom strategies can inspect the current attempt and the delay that was actually applied before the previous retry.
 
 ```kotlin
 class MyBackoff : Backoff {
 
-    override fun nextDelay(attempt: Int): Duration {
+    override fun nextDelay(context: BackoffContext): Duration {
+        val attempt = context.attempt
+        val lastAppliedDelay = context.lastAppliedDelay
+
         // ...
     }
 }
@@ -274,33 +339,114 @@ retry(backoff = MyBackoff()) {
 }
 ```
 
+`lastAppliedDelay` is `null` for the first retry attempt.
+
 ---
 
 ## Jitter
 
-Without jitter, many clients may retry at exactly the same time, creating additional load on the target system.
+Jitter randomizes the delay produced by a backoff strategy.
 
-Adding jitter randomizes delays between attempts.
+Without jitter, multiple clients following the same deterministic backoff schedule may retry at approximately the same
+time, creating synchronized retry bursts.
 
-Jitter is applied after the backoff strategy computes the base delay.
+RetryKt applies jitter independently after the backoff strategy calculates its raw delay:
 
-This helps distribute retries over time and reduces retry storms.
-
-```kotlin
-LinearBackoff(
-    increment = 200.milliseconds,
-    jitter = RandomJitter(100.milliseconds),
-)
+```text
+rawDelay = backoff.nextDelay(...)
+appliedDelay = jitter.apply(rawDelay)
 ```
 
-RetryKt includes built-in jitter implementations and allows custom ones.
+### Built-in jitter strategies
+
+RetryKt provides several common jitter algorithms.
+
+| Strategy         | Behavior                                                  |
+|------------------|-----------------------------------------------------------|
+| `NoJitter`       | Leaves the backoff delay unchanged                        |
+| `FullJitter`     | Random delay in `[0, rawDelay)`                           |
+| `EqualJitter`    | Keeps half of the raw delay and randomizes the other half |
+| `AdditiveJitter` | Adds an independent random delay in `[0, maxJitter)`      |
+
+### Full Jitter
+
+Full Jitter chooses a random delay between zero and the calculated backoff delay.
+
+```kotlin
+retry(
+    backoff = ExponentialBackoff(
+        initialDelay = 200.milliseconds,
+        maxDelay = 10.seconds,
+    ),
+    jitter = FullJitter,
+) {
+    request()
+}
+```
+
+Conceptually:
+
+```text
+appliedDelay = random(0, rawDelay)
+```
+
+### Equal Jitter
+
+Equal Jitter always retains half of the calculated delay and randomizes the remaining half.
+
+```text
+temp = rawDelay
+appliedDelay = temp / 2 + random(0, temp / 2)
+```
+
+```kotlin
+retry(
+    backoff = ExponentialBackoff(200.milliseconds),
+    jitter = EqualJitter,
+) {
+    request()
+}
+```
+
+### Additive Jitter
+
+`AdditiveJitter` adds a uniformly distributed random delay independently of the backoff delay.
+
+```kotlin
+retry(
+    backoff = ExponentialBackoff(200.milliseconds),
+    jitter = AdditiveJitter(100.milliseconds),
+) {
+    request()
+}
+```
+
+For a raw delay of `200ms`, the resulting delay is in the range:
+
+```text
+[200ms, 300ms)
+```
+
+Unlike `FullJitter` and `EqualJitter`, the amount of randomization does not depend on the calculated backoff delay.
+
+### Custom jitter
+
+`Jitter` is a functional interface, so custom strategies can be defined concisely.
 
 ```kotlin
 class MyJitter : Jitter {
 
-    override fun apply(delay: Duration): Duration {
+    override fun apply(rawDelay: Duration): Duration {
         // ...
     }
+}
+```
+
+Or using a lambda:
+
+```kotlin
+retry(jitter = { rawDelay ->  /* ... */ }) {
+    task()
 }
 ```
 
@@ -317,6 +463,7 @@ RetryKt intentionally focuses on one problem: reliable retries.
 - Consistent coroutine and blocking APIs
 - No framework-specific runtime dependencies
 - Explicit retry decisions
+- Independent backoff and jitter strategies
 - Small, composable building blocks
 - Predictable behavior
 
@@ -345,6 +492,7 @@ Use `retry()` in coroutine-based code.
 val user = retry(
     retryOn = RetryOn.thrown { it is IOException },
     backoff = ExponentialBackoff(200.milliseconds),
+    jitter = FullJitter,
 ) {
     client.get("/users/$id").body<User>()
 }
@@ -401,6 +549,7 @@ val callback = staticCFunction { chunk ->
     retryBlocking(
         retryOn = RetryOn.thrown { it is IOException },
         backoff = ExponentialBackoff(100.milliseconds),
+        jitter = FullJitter,
     ) {
         uploader.send(chunk)
     }
@@ -445,6 +594,9 @@ scheduling another attempt.
 
 This ensures correct structured concurrency behavior and avoids delaying coroutine cancellation.
 
+The same rule applies to `retryBlocking()`: `CancellationException` is propagated immediately rather than being treated
+as a retryable failure.
+
 ---
 
 ## FAQ
@@ -473,13 +625,55 @@ Yes.
 
 Implement the `Backoff` interface and pass your implementation to `retry()` or `retryBlocking()`.
 
+Your implementation receives a `BackoffContext` containing the current attempt and the actual delay applied before the
+previous retry.
+
 ---
 
 ### Can I implement my own jitter?
 
 Yes.
 
-Any implementation of `Jitter` can be plugged into a backoff strategy.
+Implement `Jitter` and pass it independently of the backoff strategy.
+
+```kotlin
+val jitter = Jitter { rawDelay ->
+    rawDelay * Random.nextDouble()
+}
+```
+
+---
+
+### What is the difference between backoff and jitter?
+
+Backoff determines the base delay according to the retry schedule.
+
+Jitter modifies that delay, typically by introducing randomization.
+
+For example:
+
+```text
+ExponentialBackoff
+    ↓
+100ms → 200ms → 400ms
+    ↓
+FullJitter
+    ↓
+random(0, 100)ms → random(0, 200)ms → random(0, 400)ms
+```
+
+This separation allows different backoff and jitter strategies to be composed independently.
+
+---
+
+### Why does `DecorrelatedBackoff` already contain randomness?
+
+`DecorrelatedBackoff` is based on the AWS decorrelated jitter algorithm.
+
+Unlike deterministic backoff strategies, its next delay depends on the actual delay used before the previous retry and
+includes randomization as part of the algorithm itself.
+
+It is therefore normally used with `NoJitter`.
 
 ---
 
@@ -487,9 +681,11 @@ Any implementation of `Jitter` can be plugged into a backoff strategy.
 
 Yes.
 
-See [supported platforms](#supported-platforms)
+See [Supported Platforms](#supported-platforms).
 
-### Why not use Flow.retryWhen ()?
+---
+
+### Why not use `Flow.retryWhen()`?
 
 `Flow.retryWhen()` only applies to Kotlin Flows.
 

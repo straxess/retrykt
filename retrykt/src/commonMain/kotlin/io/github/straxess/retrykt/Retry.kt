@@ -1,10 +1,14 @@
 package io.github.straxess.retrykt
 
 import io.github.straxess.retrykt.backoff.Backoff
+import io.github.straxess.retrykt.backoff.BackoffContext
 import io.github.straxess.retrykt.backoff.NoBackoff
 import io.github.straxess.retrykt.internal.sleep
+import io.github.straxess.retrykt.jitter.Jitter
+import io.github.straxess.retrykt.jitter.NoJitter
 import kotlinx.coroutines.delay
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration
 
 /**
  * Retries the given [task] until it succeeds or the retry policy is exhausted.
@@ -14,7 +18,8 @@ import kotlin.coroutines.cancellation.CancellationException
 public suspend fun <T> retry(
     maxAttempts: Int = Int.MAX_VALUE,
     backoff: Backoff = NoBackoff,
-    retryOn: RetryOn<T> = RetryOn.standard(),
+    jitter: Jitter = NoJitter,
+    retryOn: RetryOn<T> = RetryOn.default(),
     onRetryAttempt: suspend (RetryEvent<T>) -> Unit = {},
     task: suspend (RetryContext) -> T,
 ): T {
@@ -22,7 +27,9 @@ public suspend fun <T> retry(
         "maxAttempts must be greater than zero."
     }
 
+    var lastAppliedDelay: Duration? = null
     var attempt = 1
+
     while (true) {
         val retryContext = RetryContext(attempt, maxAttempts)
 
@@ -48,15 +55,22 @@ public suspend fun <T> retry(
             throw RetryStoppedException(RetryStoppedReason.MaxAttemptsReached(maxAttempts))
         }
 
-        val nextDelay = backoff.nextDelay(attempt)
-        val retryEvent = RetryEvent(outcome, retryContext, RetryPlan(nextDelay))
+        val backoffContext = BackoffContext(attempt, lastAppliedDelay)
+
+        val rawDelay = backoff.nextDelay(backoffContext)
+        val appliedDelay = jitter.apply(rawDelay)
+
+        val retryPlan = RetryPlan(appliedDelay)
+        val retryEvent = RetryEvent(outcome, retryContext, retryPlan)
+
         onRetryAttempt(retryEvent)
 
-        delay(nextDelay)
+        delay(appliedDelay)
+
+        lastAppliedDelay = appliedDelay
         attempt++
     }
 }
-
 
 /**
  * Retries the given [task] until it succeeds or the retry policy is exhausted.
@@ -66,7 +80,8 @@ public suspend fun <T> retry(
 public fun <T> retryBlocking(
     maxAttempts: Int = Int.MAX_VALUE,
     backoff: Backoff = NoBackoff,
-    retryOn: RetryOn<T> = RetryOn.standard(),
+    jitter: Jitter = NoJitter,
+    retryOn: RetryOn<T> = RetryOn.default(),
     onRetryAttempt: (RetryEvent<T>) -> Unit = {},
     task: (RetryContext) -> T
 ): T {
@@ -74,7 +89,9 @@ public fun <T> retryBlocking(
         "maxAttempts must be greater than zero."
     }
 
+    var lastAppliedDelay: Duration? = null
     var attempt = 1
+
     while (true) {
         val retryContext = RetryContext(attempt, maxAttempts)
 
@@ -100,11 +117,19 @@ public fun <T> retryBlocking(
             throw RetryStoppedException(RetryStoppedReason.MaxAttemptsReached(maxAttempts))
         }
 
-        val nextDelay = backoff.nextDelay(attempt)
-        val retryEvent = RetryEvent(outcome, retryContext, RetryPlan(nextDelay))
+        val backoffContext = BackoffContext(attempt, lastAppliedDelay)
+
+        val rawDelay = backoff.nextDelay(backoffContext)
+        val appliedDelay = jitter.apply(rawDelay)
+
+        val retryPlan = RetryPlan(appliedDelay)
+        val retryEvent = RetryEvent(outcome, retryContext, retryPlan)
+
         onRetryAttempt(retryEvent)
 
-        sleep(nextDelay)
+        sleep(appliedDelay)
+
+        lastAppliedDelay = appliedDelay
         attempt++
     }
 }

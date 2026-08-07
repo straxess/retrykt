@@ -6,7 +6,7 @@ public class RetryOn<in T> internal constructor(
 
     public companion object {
 
-        public fun <T> standard(): RetryOn<T> = thrown { true }
+        public fun <T> default(): RetryOn<T> = thrown { true }
 
         public fun <T> thrown(predicate: (Throwable) -> Boolean): RetryOn<T> = RetryOn { outcome ->
             when (outcome) {

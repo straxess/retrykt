@@ -1,6 +1,7 @@
 package io.github.straxess.retrykt
 
 import io.github.straxess.retrykt.backoff.Backoff
+import io.github.straxess.retrykt.backoff.BackoffContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
@@ -180,8 +181,9 @@ class RetryTest {
         retry(
             maxAttempts = 2,
             backoff = object : Backoff {
-                override fun nextDelay(attempt: Int) = 20.milliseconds
-            }
+                override fun nextDelay(context: BackoffContext) = 20.milliseconds
+            },
+            jitter = { it + 10.milliseconds },
         ) {
             attempts++
             if (attempts == 1) {
@@ -190,7 +192,7 @@ class RetryTest {
         }
 
         assertEquals(2, attempts)
-        assertEquals(20, currentTime)
+        assertEquals(30, currentTime)
     }
 
     @Test
@@ -263,15 +265,16 @@ class RetryTest {
         retry(
             onRetryAttempt = { nextDelays += it.plan.nextDelay },
             backoff = object : Backoff {
-                override fun nextDelay(attempt: Int) = 100.milliseconds * attempt
-            }
+                override fun nextDelay(context: BackoffContext) = 100.milliseconds * context.attempt
+            },
+            jitter = { it + 10.milliseconds },
         ) {
             if (it.attempt < 3) {
                 throw IllegalStateException()
             }
         }
 
-        assertEquals(listOf(100.milliseconds, 200.milliseconds), nextDelays)
+        assertEquals(listOf(110.milliseconds, 210.milliseconds), nextDelays)
     }
 
     @Test
@@ -290,5 +293,48 @@ class RetryTest {
             listOf("attempt-1", "retry-1", "attempt-2", "retry-2", "attempt-3"),
             events
         )
+    }
+
+    @Test
+    fun `jitter receives raw delay from backoff`() = runTest {
+        val rawDelays = mutableListOf<Duration>()
+
+        retry(
+            maxAttempts = 2,
+            backoff = object : Backoff {
+                override fun nextDelay(context: BackoffContext) = 100.milliseconds
+            },
+            jitter = {
+                rawDelays += it
+                it
+            },
+        ) {
+            if (it.attempt == 1) {
+                throw IllegalStateException()
+            }
+        }
+
+        assertEquals(listOf(100.milliseconds), rawDelays)
+    }
+
+    @Test
+    fun `backoff receives last applied delay`() = runTest {
+        val lastAppliedDelays = mutableListOf<Duration?>()
+
+        retry(
+            backoff = object : Backoff {
+                override fun nextDelay(context: BackoffContext): Duration {
+                    lastAppliedDelays += context.lastAppliedDelay
+                    return 100.milliseconds * context.attempt
+                }
+            },
+            jitter = { it + 50.milliseconds },
+        ) {
+            if (it.attempt < 4) {
+                throw IllegalStateException()
+            }
+        }
+
+        assertEquals(listOf(null, 150.milliseconds, 250.milliseconds), lastAppliedDelays)
     }
 }

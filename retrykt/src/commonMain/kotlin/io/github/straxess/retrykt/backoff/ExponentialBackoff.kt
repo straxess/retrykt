@@ -1,7 +1,5 @@
 package io.github.straxess.retrykt.backoff
 
-import io.github.straxess.retrykt.jitter.Jitter
-import io.github.straxess.retrykt.jitter.NoJitter
 import kotlin.math.pow
 import kotlin.time.Duration
 
@@ -9,12 +7,11 @@ public class ExponentialBackoff(
     public val initialDelay: Duration,
     public val multiplier: Double = 2.0,
     public val maxDelay: Duration = Duration.INFINITE,
-    public val jitter: Jitter = NoJitter,
 ) : Backoff {
 
     init {
         require(initialDelay >= Duration.ZERO) {
-            "baseDelay must not be negative."
+            "initialDelay must not be negative."
         }
 
         require(maxDelay >= Duration.ZERO) {
@@ -30,11 +27,11 @@ public class ExponentialBackoff(
         }
     }
 
-    override fun nextDelay(attempt: Int): Duration {
-        val baseDelay = initialDelay * multiplier.pow(attempt - 1)
+    override fun nextDelay(context: BackoffContext): Duration {
+        val delay = initialDelay * multiplier.pow(context.attempt - 1)
 
-        val cappedDelay = baseDelay.coerceAtMost(maxDelay)
+        val cappedDelay = delay.coerceAtMost(maxDelay)
 
-        return jitter.apply(cappedDelay)
+        return cappedDelay
     }
 }

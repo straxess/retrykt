@@ -1,10 +1,8 @@
 package io.github.straxess.retrykt.backoff
 
-import io.github.straxess.retrykt.jitter.ConstantJitter
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 class LinearBackoffTest {
@@ -13,24 +11,13 @@ class LinearBackoffTest {
     fun `returns linear delay`() {
         val backoff = LinearBackoff(10.seconds)
 
-        val firstDelay = backoff.nextDelay(1)
-        val secondDelay = backoff.nextDelay(2)
-        val thirdDelay = backoff.nextDelay(3)
+        val firstDelay = backoff.nextDelay(BackoffContext(1, null))
+        val secondDelay = backoff.nextDelay(BackoffContext(2, null))
+        val thirdDelay = backoff.nextDelay(BackoffContext(3, null))
 
         assertEquals(10.seconds, firstDelay)
         assertEquals(20.seconds, secondDelay)
         assertEquals(30.seconds, thirdDelay)
-    }
-
-    @Test
-    fun `LinearBackoff applies jitter`() {
-        val backoff = LinearBackoff(10.seconds, ConstantJitter(100.milliseconds))
-
-        val firstDelay = backoff.nextDelay(1)
-        val secondDelay = backoff.nextDelay(2)
-
-        assertEquals(10.seconds + 100.milliseconds, firstDelay)
-        assertEquals(20.seconds + 100.milliseconds, secondDelay)
     }
 
     @Test

@@ -4,5 +4,5 @@ import kotlin.time.Duration
 
 public fun interface Jitter {
 
-    public fun apply(baseDelay: Duration): Duration
+    public fun apply(rawDelay: Duration): Duration
 }
