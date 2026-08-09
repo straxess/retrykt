@@ -59,4 +59,11 @@ class AdditiveJitterTest {
             AdditiveJitter(Duration.INFINITE)
         }
     }
+
+    @Test
+    fun `throws IllegalArgumentException for negative raw delay`() {
+        assertFailsWith<IllegalArgumentException> {
+            AdditiveJitter(100.milliseconds).apply((-100).milliseconds)
+        }
+    }
 }
