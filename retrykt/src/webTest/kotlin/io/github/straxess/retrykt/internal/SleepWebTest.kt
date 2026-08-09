@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.time.Duration.Companion.seconds
 
-class SleepWasmJsTest {
+class SleepWebTest {
 
     @Test
     fun `sleep with positive duration fails`() {

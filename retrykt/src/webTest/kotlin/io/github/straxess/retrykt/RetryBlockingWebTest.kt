@@ -11,7 +11,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
-class RetryBlockingWasmJsTest {
+class RetryBlockingWebTest {
 
     @Test
     fun `retryBlocking with NoBackoff works`() {
