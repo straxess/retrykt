@@ -1,11 +1,7 @@
 package io.github.straxess.retrykt
 
-import io.github.straxess.retrykt.backoff.Backoff
-import io.github.straxess.retrykt.backoff.BackoffContext
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.*
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
 
 class RetryBlockingTest {
 
