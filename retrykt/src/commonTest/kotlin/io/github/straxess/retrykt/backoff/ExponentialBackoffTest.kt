@@ -22,21 +22,6 @@ class ExponentialBackoffTest {
     }
 
     @Test
-    fun `ExponentialBackoff caps delay from first attempt`() {
-        val backoff = ExponentialBackoff(
-            initialDelay = 1.seconds,
-            multiplier = 2.0,
-            maxDelay = 500.milliseconds,
-        )
-
-        val firstDelay = backoff.nextDelay(BackoffContext(1, null))
-        val secondDelay = backoff.nextDelay(BackoffContext(2, null))
-
-        assertEquals(500.milliseconds, firstDelay)
-        assertEquals(500.milliseconds, secondDelay)
-    }
-
-    @Test
     fun `ExponentialBackoff respects max delay`() {
         val backoff = ExponentialBackoff(
             initialDelay = 100.milliseconds,
@@ -90,6 +75,13 @@ class ExponentialBackoffTest {
     fun `ExponentialBackoff throws IllegalArgumentException if maxDelay is less than 0`() {
         assertFailsWith<IllegalArgumentException> {
             ExponentialBackoff(10.seconds, maxDelay = (-10).seconds)
+        }
+    }
+
+    @Test
+    fun `throws IllegalArgumentException when max delay is less than initial delay`() {
+        assertFailsWith<IllegalArgumentException> {
+            DecorrelatedBackoff(initialDelay = 100.milliseconds, maxDelay = 99.milliseconds)
         }
     }
 }

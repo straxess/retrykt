@@ -30,6 +30,10 @@ public class DecorrelatedBackoff(
         require(maxDelay > Duration.ZERO) {
             "maxDelay must be positive."
         }
+
+        require(maxDelay >= initialDelay) {
+            "maxDelay must not be less than initialDelay."
+        }
     }
 
     override fun nextDelay(context: BackoffContext): Duration {

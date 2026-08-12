@@ -25,6 +25,10 @@ public class ExponentialBackoff(
         require(multiplier >= 1.0) {
             "multiplier must not be less than 1.0."
         }
+
+        require(maxDelay >= initialDelay) {
+            "maxDelay must not be less than initialDelay."
+        }
     }
 
     override fun nextDelay(context: BackoffContext): Duration {
