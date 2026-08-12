@@ -15,6 +15,13 @@ class RetryOnTest {
     }
 
     @Test
+    fun `default does not retry Error`() {
+        val actual = RetryOn.default<String>().shouldRetry(AttemptOutcome.Thrown(AssertionError()))
+
+        assertFalse(actual)
+    }
+
+    @Test
     fun `default does not retry returned outcome`() {
         val retryOn = RetryOn.default<String>()
 

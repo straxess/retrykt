@@ -6,7 +6,10 @@ public class RetryOn<in T> internal constructor(
 
     public companion object {
 
-        public fun <T> default(): RetryOn<T> = thrown { true }
+        /**
+         * Retries only [Throwable], excluding [Error].
+         */
+        public fun <T> default(): RetryOn<T> = thrown { it !is Error }
 
         public fun <T> thrown(predicate: (Throwable) -> Boolean): RetryOn<T> = RetryOn { outcome ->
             when (outcome) {
