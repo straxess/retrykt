@@ -94,7 +94,7 @@ These are the Kotlin and Coroutines versions used to test this release line.
 
 | RetryKt Version | Kotlin Version | Kotlin Coroutines Version |
 |-----------------|----------------|---------------------------|
-| 0.1.x           | 2.3.x          | 1.10.x                    |
+| 0.2.x           | 2.3.x          | 1.10.x                    |
 
 ### JVM Compatibility
 
