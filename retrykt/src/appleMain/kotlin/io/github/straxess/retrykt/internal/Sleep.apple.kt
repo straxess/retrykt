@@ -38,6 +38,7 @@ internal actual fun sleep(duration: Duration) {
 
             check(errno == EINTR) { "nanosleep failed with errno $errno." }
 
+            // Recalculate from a monotonic clock so repeated signals cannot extend the wait.
             remainingDuration = duration - mark.elapsedNow()
             if (remainingDuration <= Duration.ZERO) {
                 return

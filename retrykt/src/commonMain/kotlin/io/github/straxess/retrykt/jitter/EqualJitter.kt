@@ -4,11 +4,8 @@ import kotlin.random.Random
 import kotlin.time.Duration
 
 /**
- * Applies the Equal Jitter strategy recommended by AWS.
- *
- * Preserves at least half of the computed backoff delay
- * and adds a uniformly distributed random delay from the remaining half,
- * producing a delay in the range [rawDelay / 2, rawDelay).
+ * AWS-style equal jitter: keeps half the delay and randomizes the other half.
+ * The result is in the range `[rawDelay / 2, rawDelay)`.
  */
 public object EqualJitter : Jitter {
 

@@ -3,12 +3,13 @@ package io.github.straxess.retrykt
 /**
  * Thrown when [retry] or [retryBlocking] stops retrying according to the configured retry policy.
  *
- * This exception is produced only by RetryKt itself.
- * Exceptions thrown by user callbacks, such as RetryOn predicates or lifecycle callbacks, are propagated unchanged.
- * When [lastOutcome] is [AttemptOutcome.Thrown], its throwable is available as this exception's [cause].
+ * RetryKt creates this exception itself. Exceptions from your task, retry policy, backoff, jitter, or callback pass
+ * through unchanged. If [lastOutcome] is [AttemptOutcome.Thrown], that throwable is also the [cause].
  */
 public class RetryStoppedException internal constructor(
+    /** Why retries stopped. */
     public val reason: RetryStoppedReason,
+    /** The result of the final allowed attempt. */
     public val lastOutcome: AttemptOutcome<*>,
 ) : RuntimeException(
     reason.description(),

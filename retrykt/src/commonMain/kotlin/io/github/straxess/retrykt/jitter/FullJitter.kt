@@ -4,9 +4,7 @@ import kotlin.random.Random
 import kotlin.time.Duration
 
 /**
- * Applies the Full Jitter strategy recommended by AWS.
- *
- * Returns a uniformly distributed random delay in the range [0, rawDelay).
+ * AWS-style full jitter: returns a random delay in the range `[0, rawDelay)`.
  */
 public object FullJitter : Jitter {
 

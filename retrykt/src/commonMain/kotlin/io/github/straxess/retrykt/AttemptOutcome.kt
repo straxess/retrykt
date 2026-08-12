@@ -3,12 +3,7 @@ package io.github.straxess.retrykt
 /**
  * Represents the outcome of a single task invocation.
  *
- * A task can only:
- * - return a value;
- * - throw a throwable.
- *
- * This type intentionally models Kotlin execution semantics rather than business success or failure.
- * Whether an outcome should trigger another attempt is determined by [RetryOn].
+ * It either returned a value or threw an exception. [RetryOn] decides whether to try again.
  */
 public sealed interface AttemptOutcome<out T> {
 

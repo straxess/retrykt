@@ -13,9 +13,11 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 
 /**
- * Retries the given [task] until it succeeds or the retry policy is exhausted.
+ * Runs [task] until it produces a result that [retryOn] accepts or attempts run out.
  *
- * [CancellationException] is never retried and is rethrown immediately to preserve coroutine cancellation semantics.
+ * Designed for suspending code. Use [retryBlocking] for non-suspending code.
+ * Coroutine cancellation is always propagated.
+ * [CancellationException] is never retried.
  */
 public suspend fun <T> retry(
     maxAttempts: Int = Int.MAX_VALUE,
@@ -84,9 +86,10 @@ public suspend fun <T> retry(
 }
 
 /**
- * Retries the given [task] until it succeeds or the retry policy is exhausted.
+ * Blocking version of [retry]. Runs [task] until [retryOn] accepts its result or attempts run out.
  *
- * [CancellationException] is never retried and is rethrown immediately.
+ * Designed for blocking code. Use [retry] for suspending code.
+ * [CancellationException] is never retried.
  */
 public fun <T> retryBlocking(
     maxAttempts: Int = Int.MAX_VALUE,

@@ -8,7 +8,6 @@ public sealed interface RetryStoppedReason {
     /**
      * Returns a human-readable description of this stop reason.
      *
-     * The returned text is intended for exception messages and diagnostics.
      * Applications should not rely on its exact wording.
      */
     public fun description(): String

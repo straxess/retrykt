@@ -3,6 +3,9 @@ package io.github.straxess.retrykt.backoff
 import kotlin.math.pow
 import kotlin.time.Duration
 
+/**
+ * Multiplies [initialDelay] by [multiplier] after each attempt, up to [maxDelay].
+ */
 public class ExponentialBackoff(
     public val initialDelay: Duration,
     public val multiplier: Double = 2.0,

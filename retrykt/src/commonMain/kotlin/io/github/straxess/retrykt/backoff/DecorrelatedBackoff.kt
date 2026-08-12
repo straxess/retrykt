@@ -4,14 +4,12 @@ import kotlin.random.Random
 import kotlin.time.Duration
 
 /**
- * A randomized backoff strategy based on the AWS Decorrelated Jitter algorithm.
+ * Randomized backoff based on the AWS decorrelated-jitter algorithm.
  *
- * Unlike deterministic backoff strategies, this implementation already
- * incorporates randomized delays and is typically used with `NoJitter`.
+ * This backoff already adds randomness, so it is usually paired with `NoJitter`.
  *
- * The next delay is computed as:
- *
- * `random(initialDelay, min(maxDelay, lastActualDelay * 3))`
+ * After the first attempt, the next delay is computed as:
+ * `random(initialDelay, min(maxDelay, lastAppliedDelay * 3))`
  */
 public class DecorrelatedBackoff(
     public val initialDelay: Duration,

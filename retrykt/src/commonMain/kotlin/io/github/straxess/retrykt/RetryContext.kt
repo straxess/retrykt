@@ -3,7 +3,7 @@ package io.github.straxess.retrykt
 public class RetryContext internal constructor(
 
     /**
-     * Current attempt number. Starts from 1.
+     * Current attempt number, starting at 1.
      */
     public val attempt: Int,
 

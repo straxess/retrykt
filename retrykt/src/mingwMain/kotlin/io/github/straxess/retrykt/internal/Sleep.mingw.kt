@@ -18,6 +18,7 @@ internal actual fun sleep(duration: Duration) {
     var remaining = duration
     val maxChunk = UInt.MAX_VALUE.toLong().milliseconds
 
+    // Windows Sleep takes a UInt millisecond count, so long waits need several calls.
     while (remaining > Duration.ZERO) {
         val chunk = remaining.coerceAtMost(maxChunk)
         val millis = chunk.inWholeMilliseconds.coerceAtLeast(1)

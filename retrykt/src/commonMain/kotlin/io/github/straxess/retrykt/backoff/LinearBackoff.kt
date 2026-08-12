@@ -2,6 +2,9 @@ package io.github.straxess.retrykt.backoff
 
 import kotlin.time.Duration
 
+/**
+ * Adds [increment] for each retry, up to [maxDelay].
+ */
 public class LinearBackoff(
     public val increment: Duration,
     public val maxDelay: Duration = Duration.INFINITE,

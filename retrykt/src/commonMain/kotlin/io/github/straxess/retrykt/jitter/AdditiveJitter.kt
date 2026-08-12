@@ -4,9 +4,9 @@ import kotlin.random.Random
 import kotlin.time.Duration
 
 /**
- * Adds a uniformly distributed random delay in the range [0, maxJitter) to the computed backoff delay.
+ * Adds a random delay in the range `[0, maxJitter)` to the backoff delay.
  *
- * Unlike [FullJitter] and [EqualJitter], the jitter amount is independent of the computed backoff delay.
+ * Unlike [FullJitter] and [EqualJitter], this extra delay does not depend on the backoff delay.
  */
 public class AdditiveJitter(
     public val maxJitter: Duration,
