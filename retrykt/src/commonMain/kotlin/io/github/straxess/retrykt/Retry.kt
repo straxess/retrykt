@@ -6,7 +6,9 @@ import io.github.straxess.retrykt.backoff.NoBackoff
 import io.github.straxess.retrykt.internal.sleep
 import io.github.straxess.retrykt.jitter.Jitter
 import io.github.straxess.retrykt.jitter.NoJitter
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 
@@ -31,6 +33,8 @@ public suspend fun <T> retry(
     var attempt = 1
 
     while (true) {
+        currentCoroutineContext().ensureActive()
+
         val retryContext = RetryContext(attempt, maxAttempts)
 
         val outcome = try {
@@ -61,11 +65,15 @@ public suspend fun <T> retry(
         val backoffContext = BackoffContext(attempt, lastAppliedDelay)
 
         val rawDelay = backoff.nextDelay(backoffContext)
+        requireValidDelay(rawDelay, "backoff")
+
         val appliedDelay = jitter.apply(rawDelay)
+        requireValidDelay(appliedDelay, "jitter")
 
         val retryPlan = RetryPlan(appliedDelay)
         val retryEvent = RetryEvent(outcome, retryContext, retryPlan)
 
+        currentCoroutineContext().ensureActive()
         onRetryAttempt(retryEvent)
 
         delay(appliedDelay)
@@ -126,7 +134,10 @@ public fun <T> retryBlocking(
         val backoffContext = BackoffContext(attempt, lastAppliedDelay)
 
         val rawDelay = backoff.nextDelay(backoffContext)
+        requireValidDelay(rawDelay, "backoff")
+
         val appliedDelay = jitter.apply(rawDelay)
+        requireValidDelay(appliedDelay, "jitter")
 
         val retryPlan = RetryPlan(appliedDelay)
         val retryEvent = RetryEvent(outcome, retryContext, retryPlan)
@@ -137,5 +148,11 @@ public fun <T> retryBlocking(
 
         lastAppliedDelay = appliedDelay
         attempt++
+    }
+}
+
+private fun requireValidDelay(delay: Duration, source: String) {
+    require(delay >= Duration.ZERO && delay.isFinite()) {
+        "$source delay must be finite and non-negative."
     }
 }

@@ -1,7 +1,11 @@
 package io.github.straxess.retrykt
 
+import io.github.straxess.retrykt.backoff.Backoff
+import io.github.straxess.retrykt.backoff.BackoffContext
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.*
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 class RetryBlockingTest {
 
@@ -51,6 +55,7 @@ class RetryBlockingTest {
         assertEquals(maxAttempts, exception.reason.maxAttempts)
         assertTrue(exception.lastOutcome is AttemptOutcome.Thrown)
         assertSame(expectedThrowable, exception.lastOutcome.throwable)
+        assertSame(expectedThrowable, exception.cause)
     }
 
     @Test
@@ -106,6 +111,23 @@ class RetryBlockingTest {
         assertFailsWith<CancellationException> {
             retryBlocking(retryOn = RetryOn.outcome { error("should not be called") }) {
                 throw CancellationException()
+            }
+        }
+    }
+
+    @Test
+    fun `rejects invalid custom delays`() {
+        assertFailsWith<IllegalArgumentException> {
+            retryBlocking(backoff = object : Backoff {
+                override fun nextDelay(context: BackoffContext) = (-1).milliseconds
+            }) {
+                error("task should not succeed")
+            }
+        }
+
+        assertFailsWith<IllegalArgumentException> {
+            retryBlocking(jitter = { Duration.INFINITE }) {
+                error("task should not succeed")
             }
         }
     }

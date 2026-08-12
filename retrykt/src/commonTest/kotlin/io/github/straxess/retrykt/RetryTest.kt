@@ -3,8 +3,10 @@ package io.github.straxess.retrykt
 import io.github.straxess.retrykt.backoff.Backoff
 import io.github.straxess.retrykt.backoff.BackoffContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.*
 import kotlin.time.Duration
@@ -58,6 +60,7 @@ class RetryTest {
         assertEquals(maxAttempts, exception.reason.maxAttempts)
         assertTrue(exception.lastOutcome is AttemptOutcome.Thrown)
         assertSame(expectedThrowable, exception.lastOutcome.throwable)
+        assertSame(expectedThrowable, exception.cause)
     }
 
     @Test
@@ -79,7 +82,6 @@ class RetryTest {
         assertTrue(exception.lastOutcome is AttemptOutcome.Returned)
         assertEquals(expectedReturned, exception.lastOutcome.value)
     }
-
 
     @Test
     fun `does not retry when throwable does not match retryOn`() = runTest {
@@ -114,6 +116,41 @@ class RetryTest {
         assertFailsWith<CancellationException> {
             retry(retryOn = RetryOn.outcome { error("should not be called") }) {
                 throw CancellationException()
+            }
+        }
+    }
+
+    @Test
+    fun `does not invoke task in an already cancelled coroutine`() = runTest {
+        val job = Job().also { it.cancel() }
+        var invoked = false
+
+        assertFailsWith<CancellationException> {
+            withContext(job) {
+                retry {
+                    invoked = true
+                }
+            }
+        }
+
+        assertFalse(invoked)
+    }
+
+    @Test
+    fun `rejects invalid custom delays`() = runTest {
+        assertFailsWith<IllegalArgumentException> {
+            retry(
+                backoff = object : Backoff {
+                    override fun nextDelay(context: BackoffContext) = (-1).milliseconds
+                }
+            ) {
+                error("task should not succeed")
+            }
+        }
+
+        assertFailsWith<IllegalArgumentException> {
+            retry(jitter = { Duration.INFINITE }) {
+                error("task should not succeed")
             }
         }
     }
