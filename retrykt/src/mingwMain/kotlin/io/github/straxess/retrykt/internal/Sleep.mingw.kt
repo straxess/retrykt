@@ -2,6 +2,7 @@ package io.github.straxess.retrykt.internal
 
 import platform.windows.Sleep
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * A positive [duration] less than 1 ms is rounded up to 1 ms
@@ -14,9 +15,14 @@ internal actual fun sleep(duration: Duration) {
         return
     }
 
-    val millis = duration.inWholeMilliseconds
-        .coerceAtLeast(1)
-        .coerceAtMost(UInt.MAX_VALUE.toLong())
+    var remaining = duration
+    val maxChunk = UInt.MAX_VALUE.toLong().milliseconds
 
-    Sleep(millis.toUInt())
+    while (remaining > Duration.ZERO) {
+        val chunk = remaining.coerceAtMost(maxChunk)
+        val millis = chunk.inWholeMilliseconds.coerceAtLeast(1)
+
+        Sleep(millis.toUInt())
+        remaining -= chunk
+    }
 }
