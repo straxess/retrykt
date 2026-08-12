@@ -34,19 +34,43 @@ class RetryBlockingTest {
     }
 
     @Test
-    fun `stops with RetryStoppedException when max attempts reached`() {
+    fun `stops with RetryStoppedException when max attempts reached with thrown outcome`() {
+        val maxAttempts = 3
+        val expectedThrowable = RuntimeException()
         var attempts = 0
 
         val exception = assertFailsWith<RetryStoppedException> {
-            retryBlocking(maxAttempts = 3) {
+            retryBlocking(maxAttempts = maxAttempts) {
                 attempts++
-                throw RuntimeException()
+                throw expectedThrowable
             }
         }
 
         assertEquals(3, attempts)
         assertTrue(exception.reason is RetryStoppedReason.MaxAttemptsReached)
-        assertEquals(3, exception.reason.maxAttempts)
+        assertEquals(maxAttempts, exception.reason.maxAttempts)
+        assertTrue(exception.lastOutcome is AttemptOutcome.Thrown)
+        assertSame(expectedThrowable, exception.lastOutcome.throwable)
+    }
+
+    @Test
+    fun `stops with RetryStoppedException when max attempts reached with returned outcome`() {
+        val maxAttempts = 3
+        val expectedReturned = 1
+        var attempts = 0
+
+        val exception = assertFailsWith<RetryStoppedException> {
+            retryBlocking(maxAttempts = maxAttempts, retryOn = RetryOn.returned { it == 1 }) {
+                attempts++
+                expectedReturned
+            }
+        }
+
+        assertEquals(3, attempts)
+        assertTrue(exception.reason is RetryStoppedReason.MaxAttemptsReached)
+        assertEquals(maxAttempts, exception.reason.maxAttempts)
+        assertTrue(exception.lastOutcome is AttemptOutcome.Returned)
+        assertEquals(expectedReturned, exception.lastOutcome.value)
     }
 
     @Test

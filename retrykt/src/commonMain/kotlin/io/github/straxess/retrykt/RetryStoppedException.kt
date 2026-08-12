@@ -8,4 +8,5 @@ package io.github.straxess.retrykt
  */
 public class RetryStoppedException internal constructor(
     public val reason: RetryStoppedReason,
+    public val lastOutcome: AttemptOutcome<*>
 ) : RuntimeException(reason.description())

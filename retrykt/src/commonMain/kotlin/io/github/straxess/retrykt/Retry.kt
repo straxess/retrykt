@@ -52,7 +52,10 @@ public suspend fun <T> retry(
         }
 
         if (attempt == maxAttempts) {
-            throw RetryStoppedException(RetryStoppedReason.MaxAttemptsReached(maxAttempts))
+            throw RetryStoppedException(
+                reason = RetryStoppedReason.MaxAttemptsReached(maxAttempts),
+                lastOutcome = outcome,
+            )
         }
 
         val backoffContext = BackoffContext(attempt, lastAppliedDelay)
@@ -114,7 +117,10 @@ public fun <T> retryBlocking(
         }
 
         if (attempt == maxAttempts) {
-            throw RetryStoppedException(RetryStoppedReason.MaxAttemptsReached(maxAttempts))
+            throw RetryStoppedException(
+                reason = RetryStoppedReason.MaxAttemptsReached(maxAttempts),
+                lastOutcome = outcome,
+            )
         }
 
         val backoffContext = BackoffContext(attempt, lastAppliedDelay)
