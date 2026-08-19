@@ -49,20 +49,20 @@ val response = retry(
 
 ## Why RetryKt?
 
-`repeat(3)` is fine until retries need real rules. Most apps eventually need to:
+`repeat(3)` is fine until retries need real rules. Real-world retry logic often needs to:
 
-- Retry only specific failures
-- Retry exceptions or returned values
-- Configurable backoff strategies
-- Jitter to avoid synchronized retries
-- Coroutine cancellation awareness
-- A consistent API across Kotlin Multiplatform
+- Retry only specific exceptions or returned values
+- Use configurable backoff strategies
+- Add jitter to avoid synchronized retries
+- Respect coroutine cancellation
+- Observe retry attempts and outcomes
+- Support both suspending and blocking code
+- Work consistently across Kotlin Multiplatform
 
 RetryKt provides these capabilities in a small, focused library without framework-specific dependencies.
 
-Instead of writing ad-hoc retry loops, you define **what** should be retried (`RetryOn`) and **how** retries are
-scheduled (`Backoff` + `Jitter`).
-
+Instead of writing ad-hoc retry loops, you define **what** to retry (`RetryOn`)
+and **how** to schedule retries (`Backoff` + `Jitter`), with optional observability through `RetryListener`.
 ---
 
 ## Installation
@@ -95,6 +95,7 @@ These are the Kotlin and Coroutines versions used to test this release line.
 | RetryKt Version | Kotlin Version | Kotlin Coroutines Version |
 |-----------------|----------------|---------------------------|
 | 0.2.x           | 2.3.x          | 1.10.x                    |
+| 0.3.x           | 2.3.x          | 1.10.x                    |
 
 ### JVM Compatibility
 
@@ -182,15 +183,23 @@ retry(maxAttempts = 3) { ctx ->
 }
 ```
 
-### Observe retry attempts
+### Observe retry lifecycle
 
-`onRetryAttempt` runs after the next delay is calculated and just before RetryKt waits.
+Use `RetryListener` to observe retry attempts and their outcomes.
 
 ```kotlin
 retry(
-    onRetryAttempt = { event ->
-        log.info("Attempt ${event.context.attempt} failed. Retrying in ${event.plan.nextDelay}.")
-    },
+    listener = RetryListener(
+        onRetry = { event ->
+            log.info("Retrying after attempt ${event.context.attempt}.")
+        },
+        onSuccess = { event ->
+            log.info("Succeeded on attempt ${event.context.attempt}.")
+        },
+        onFailure = { event ->
+            log.info("Failed on attempt ${event.context.attempt}.")
+        },
+    ),
 ) {
     fetchData()
 }

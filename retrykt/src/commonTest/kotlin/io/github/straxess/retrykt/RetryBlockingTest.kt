@@ -2,6 +2,7 @@ package io.github.straxess.retrykt
 
 import io.github.straxess.retrykt.backoff.Backoff
 import io.github.straxess.retrykt.backoff.BackoffContext
+import io.github.straxess.retrykt.listener.RetryListener
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.*
 import kotlin.time.Duration
@@ -118,9 +119,11 @@ class RetryBlockingTest {
     @Test
     fun `rejects invalid custom delays`() {
         assertFailsWith<IllegalArgumentException> {
-            retryBlocking(backoff = object : Backoff {
-                override fun nextDelay(context: BackoffContext) = (-1).milliseconds
-            }) {
+            retryBlocking(
+                backoff = object : Backoff {
+                    override fun nextDelay(context: BackoffContext) = (-1).milliseconds
+                }
+            ) {
                 error("task should not succeed")
             }
         }
@@ -220,34 +223,44 @@ class RetryBlockingTest {
     }
 
     @Test
-    fun `onRetryAttempt receives current thrown outcome`() {
+    fun `onRetry receives thrown outcome`() {
         val first = IllegalStateException()
         val second = IllegalArgumentException()
 
-        val outcomes = mutableListOf<AttemptOutcome<Unit>>()
+        val events = mutableListOf<RetryEvent<*>>()
 
-        retryBlocking(onRetryAttempt = { outcomes += it.outcome }) {
+        retryBlocking(
+            listener = RetryListener(onRetry = { events += it }),
+        ) {
             when (it.attempt) {
                 1 -> throw first
                 2 -> throw second
-                else -> {}
+                else -> Unit
             }
         }
 
-        assertEquals(2, outcomes.size)
-        assertTrue(outcomes[0] is AttemptOutcome.Thrown)
-        assertTrue(outcomes[1] is AttemptOutcome.Thrown)
-        assertSame(first, (outcomes[0] as AttemptOutcome.Thrown).throwable)
-        assertSame(second, (outcomes[1] as AttemptOutcome.Thrown).throwable)
+        assertEquals(2, events.size)
+
+        assertTrue(events[0].outcome is AttemptOutcome.Thrown)
+        assertTrue(events[1].outcome is AttemptOutcome.Thrown)
+
+        assertSame(
+            first,
+            (events[0].outcome as AttemptOutcome.Thrown).throwable,
+        )
+        assertSame(
+            second,
+            (events[1].outcome as AttemptOutcome.Thrown).throwable,
+        )
     }
 
     @Test
-    fun `onRetryAttempt receives returned outcome`() {
-        val outcomes = mutableListOf<AttemptOutcome<String>>()
+    fun `onRetry receives returned outcome`() {
+        val events = mutableListOf<RetryEvent<*>>()
 
         retryBlocking(
             retryOn = RetryOn.returned { it == "retry" },
-            onRetryAttempt = { outcomes += it.outcome },
+            listener = RetryListener(onRetry = { events += it }),
         ) {
             if (it.attempt < 2) {
                 "retry"
@@ -256,30 +269,21 @@ class RetryBlockingTest {
             }
         }
 
-        assertEquals(1, outcomes.size)
+        assertEquals(1, events.size)
 
-        assertTrue(outcomes[0] is AttemptOutcome.Returned)
-        assertEquals("retry", (outcomes[0] as AttemptOutcome.Returned).value)
+        val outcome = events.single().outcome
+
+        assertTrue(outcome is AttemptOutcome.Returned)
+        assertEquals("retry", outcome.value)
     }
 
     @Test
-    fun `onRetryAttempt receives current attempt`() {
-        val attempts = mutableListOf<Int>()
-
-        retryBlocking(onRetryAttempt = { attempts += it.context.attempt }) {
-            if (it.attempt < 3) {
-                throw IllegalStateException()
-            }
-        }
-
-        assertEquals(listOf(1, 2), attempts)
-    }
-
-    @Test
-    fun `onRetryAttempt is called before next attempt`() {
+    fun `onRetry is called before next attempt`() {
         val events = mutableListOf<String>()
 
-        retryBlocking(onRetryAttempt = { events += "retry-${it.context.attempt}" }) {
+        retryBlocking(
+            listener = RetryListener(onRetry = { events += "retry-${it.context.attempt}" })
+        ) {
             events += "attempt-${it.attempt}"
 
             if (it.attempt < 3) {
@@ -289,7 +293,221 @@ class RetryBlockingTest {
 
         assertEquals(
             listOf("attempt-1", "retry-1", "attempt-2", "retry-2", "attempt-3"),
-            events
+            events,
         )
+    }
+
+    @Test
+    fun `onSuccess receives successful outcome`() {
+        val events = mutableListOf<RetryEvent<*>>()
+
+        retryBlocking(
+            listener = RetryListener(onSuccess = { events += it }),
+        ) {
+            "success"
+        }
+
+        assertEquals(1, events.size)
+
+        val event = events.single()
+
+        assertTrue(event.outcome is AttemptOutcome.Returned)
+        assertEquals("success", event.outcome.value)
+        assertEquals(1, event.context.attempt)
+    }
+
+    @Test
+    fun `onSuccess receives final successful outcome after retries`() {
+        val events = mutableListOf<RetryEvent<*>>()
+
+        retryBlocking(
+            listener = RetryListener(onSuccess = { events += it })
+        ) {
+            if (it.attempt < 3) {
+                throw IllegalStateException()
+            }
+
+            "success"
+        }
+
+        assertEquals(1, events.size)
+
+        val event = events.single()
+
+        assertEquals(3, event.context.attempt)
+        assertTrue(event.outcome is AttemptOutcome.Returned)
+        assertEquals(
+            "success",
+            event.outcome.value,
+        )
+    }
+
+    @Test
+    fun `onFailure receives non-retryable thrown outcome`() {
+        val throwable = IllegalStateException()
+        val events = mutableListOf<RetryEvent<*>>()
+
+        assertFailsWith<IllegalStateException> {
+            retryBlocking(
+                retryOn = RetryOn.thrown { false },
+                listener = RetryListener(onFailure = { events += it })
+            ) {
+                throw throwable
+            }
+        }
+
+        assertEquals(1, events.size)
+
+        val event = events.single()
+
+        assertEquals(1, event.context.attempt)
+        assertTrue(event.outcome is AttemptOutcome.Thrown)
+        assertSame(throwable, event.outcome.throwable)
+    }
+
+    @Test
+    fun `onFailure receives last outcome when max attempts are reached`() {
+        val exception = IllegalStateException()
+        val events = mutableListOf<RetryEvent<*>>()
+
+        assertFailsWith<RetryStoppedException> {
+            retryBlocking(
+                maxAttempts = 2,
+                listener = RetryListener(onFailure = { events += it }),
+            ) {
+                throw exception
+            }
+        }
+
+        assertEquals(1, events.size)
+
+        val event = events.single()
+
+        assertEquals(2, event.context.attempt)
+        assertTrue(event.outcome is AttemptOutcome.Thrown)
+        assertSame(exception, event.outcome.throwable)
+    }
+
+    @Test
+    fun `listener receives correct lifecycle`() {
+        val events = mutableListOf<String>()
+
+        retryBlocking(
+            listener = RetryListener(
+                onRetry = { events += "retry-${it.context.attempt}" },
+                onSuccess = { events += "success-${it.context.attempt}" },
+                onFailure = { events += "failure-${it.context.attempt}" },
+            ),
+        ) {
+            if (it.attempt < 3) {
+                throw IllegalStateException()
+            }
+        }
+
+        assertEquals(
+            listOf("retry-1", "retry-2", "success-3"),
+            events,
+        )
+    }
+
+    @Test
+    fun `listener receives retry and failure on exhaustion`() {
+        val events = mutableListOf<String>()
+
+        assertFailsWith<RetryStoppedException> {
+            retryBlocking(
+                maxAttempts = 3,
+                listener = RetryListener(
+                    onRetry = { events += "retry-${it.context.attempt}" },
+                    onSuccess = { events += "success-${it.context.attempt}" },
+                    onFailure = { events += "failure-${it.context.attempt}" },
+                ),
+            ) {
+                throw IllegalStateException()
+            }
+        }
+
+        assertEquals(
+            listOf("retry-1", "retry-2", "failure-3"),
+            events,
+        )
+    }
+
+    @Test
+    fun `onSuccess is not called for retryable returned outcome`() {
+        val successEvents = mutableListOf<RetryEvent<*>>()
+
+        retryBlocking(
+            retryOn = RetryOn.returned { it == "retry" },
+            listener = RetryListener(onSuccess = { successEvents += it }),
+        ) {
+            if (it.attempt < 2) {
+                "retry"
+            } else {
+                "success"
+            }
+        }
+
+        assertEquals(1, successEvents.size)
+        assertEquals(2, successEvents.single().context.attempt)
+    }
+
+    @Test
+    fun `onRetry is not called when max attempts are reached`() {
+        val retryEvents = mutableListOf<RetryEvent<*>>()
+
+        assertFailsWith<RetryStoppedException> {
+            retryBlocking(
+                maxAttempts = 2,
+                listener = RetryListener(onRetry = { retryEvents += it }),
+            ) {
+                throw IllegalStateException()
+            }
+        }
+
+        assertEquals(1, retryEvents.size)
+        assertEquals(1, retryEvents.single().context.attempt)
+    }
+
+    @Test
+    fun `onFailure receives last returned outcome when max attempts are reached`() {
+        val events = mutableListOf<RetryEvent<*>>()
+
+        assertFailsWith<RetryStoppedException> {
+            retryBlocking(
+                maxAttempts = 2,
+                retryOn = RetryOn.returned { it == "retry" },
+                listener = RetryListener(onFailure = { events += it }),
+            ) {
+                "retry"
+            }
+        }
+
+        assertEquals(1, events.size)
+
+        val event = events.single()
+
+        assertEquals(2, event.context.attempt)
+        assertTrue(event.outcome is AttemptOutcome.Returned)
+        assertEquals("retry", event.outcome.value)
+    }
+
+    @Test
+    fun `does not notify listener for cancellation`() {
+        val events = mutableListOf<String>()
+
+        assertFailsWith<CancellationException> {
+            retryBlocking(
+                listener = RetryListener(
+                    onRetry = { events += "retry" },
+                    onSuccess = { events += "success" },
+                    onFailure = { events += "failure" },
+                ),
+            ) {
+                throw CancellationException()
+            }
+        }
+
+        assertTrue(events.isEmpty())
     }
 }

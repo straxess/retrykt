@@ -6,6 +6,7 @@ import io.github.straxess.retrykt.backoff.NoBackoff
 import io.github.straxess.retrykt.internal.sleep
 import io.github.straxess.retrykt.jitter.Jitter
 import io.github.straxess.retrykt.jitter.NoJitter
+import io.github.straxess.retrykt.listener.RetryListener
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -24,7 +25,7 @@ public suspend fun <T> retry(
     backoff: Backoff = NoBackoff,
     jitter: Jitter = NoJitter,
     retryOn: RetryOn<T> = RetryOn.default(),
-    onRetryAttempt: suspend (RetryEvent<T>) -> Unit = {},
+    listener: RetryListener = RetryListener(),
     task: suspend (RetryContext) -> T,
 ): T {
     require(maxAttempts > 0) {
@@ -50,14 +51,24 @@ public suspend fun <T> retry(
             AttemptOutcome.Thrown(t)
         }
 
+        val retryEvent = RetryEvent(outcome, retryContext)
+
         if (!retryOn.shouldRetry(outcome)) {
             return when (outcome) {
-                is AttemptOutcome.Returned -> outcome.value
-                is AttemptOutcome.Thrown -> throw outcome.throwable
+                is AttemptOutcome.Returned -> {
+                    listener.onSuccess(retryEvent)
+                    outcome.value
+                }
+
+                is AttemptOutcome.Thrown -> {
+                    listener.onFailure(retryEvent)
+                    throw outcome.throwable
+                }
             }
         }
 
         if (attempt == maxAttempts) {
+            listener.onFailure(retryEvent)
             throw RetryStoppedException(
                 reason = RetryStoppedReason.MaxAttemptsReached(maxAttempts),
                 lastOutcome = outcome,
@@ -72,11 +83,8 @@ public suspend fun <T> retry(
         val appliedDelay = jitter.apply(rawDelay)
         requireValidDelay(appliedDelay, "jitter")
 
-        val retryPlan = RetryPlan(appliedDelay)
-        val retryEvent = RetryEvent(outcome, retryContext, retryPlan)
-
         currentCoroutineContext().ensureActive()
-        onRetryAttempt(retryEvent)
+        listener.onRetry(retryEvent)
 
         delay(appliedDelay)
 
@@ -96,8 +104,8 @@ public fun <T> retryBlocking(
     backoff: Backoff = NoBackoff,
     jitter: Jitter = NoJitter,
     retryOn: RetryOn<T> = RetryOn.default(),
-    onRetryAttempt: (RetryEvent<T>) -> Unit = {},
-    task: (RetryContext) -> T
+    listener: RetryListener = RetryListener(),
+    task: (RetryContext) -> T,
 ): T {
     require(maxAttempts > 0) {
         "maxAttempts must be greater than zero."
@@ -120,14 +128,24 @@ public fun <T> retryBlocking(
             AttemptOutcome.Thrown(t)
         }
 
+        val retryEvent = RetryEvent(outcome, retryContext)
+
         if (!retryOn.shouldRetry(outcome)) {
             return when (outcome) {
-                is AttemptOutcome.Returned -> outcome.value
-                is AttemptOutcome.Thrown -> throw outcome.throwable
+                is AttemptOutcome.Returned -> {
+                    listener.onSuccess(retryEvent)
+                    outcome.value
+                }
+
+                is AttemptOutcome.Thrown -> {
+                    listener.onFailure(retryEvent)
+                    throw outcome.throwable
+                }
             }
         }
 
         if (attempt == maxAttempts) {
+            listener.onFailure(retryEvent)
             throw RetryStoppedException(
                 reason = RetryStoppedReason.MaxAttemptsReached(maxAttempts),
                 lastOutcome = outcome,
@@ -142,10 +160,7 @@ public fun <T> retryBlocking(
         val appliedDelay = jitter.apply(rawDelay)
         requireValidDelay(appliedDelay, "jitter")
 
-        val retryPlan = RetryPlan(appliedDelay)
-        val retryEvent = RetryEvent(outcome, retryContext, retryPlan)
-
-        onRetryAttempt(retryEvent)
+        listener.onRetry(retryEvent)
 
         sleep(appliedDelay)
 
