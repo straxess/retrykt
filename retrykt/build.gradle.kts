@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.vanniktech.mavenPublish)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.kover)
 }
 
 group = "io.github.straxess"
