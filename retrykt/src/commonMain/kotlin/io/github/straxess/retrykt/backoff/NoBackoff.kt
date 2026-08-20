@@ -7,7 +7,5 @@ import kotlin.time.Duration
  */
 public object NoBackoff : Backoff {
 
-    override fun nextDelay(context: BackoffContext): Duration {
-        return Duration.ZERO
-    }
+    override fun nextDelay(context: BackoffContext): Duration = Duration.ZERO
 }

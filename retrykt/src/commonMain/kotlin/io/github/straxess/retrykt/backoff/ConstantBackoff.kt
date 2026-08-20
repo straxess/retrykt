@@ -15,7 +15,5 @@ public class ConstantBackoff(
         }
     }
 
-    override fun nextDelay(context: BackoffContext): Duration {
-        return delay
-    }
+    override fun nextDelay(context: BackoffContext): Duration = delay
 }

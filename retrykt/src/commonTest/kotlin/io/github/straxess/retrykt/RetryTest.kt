@@ -143,7 +143,7 @@ class RetryTest {
             retry(
                 backoff = object : Backoff {
                     override fun nextDelay(context: BackoffContext) = (-1).milliseconds
-                }
+                },
             ) {
                 error("task should not succeed")
             }
@@ -325,7 +325,7 @@ class RetryTest {
         val events = mutableListOf<String>()
 
         retry(
-            listener = RetryListener(onRetry = { events += "retry-${it.context.attempt}" })
+            listener = RetryListener(onRetry = { events += "retry-${it.context.attempt}" }),
         ) {
             events += "attempt-${it.attempt}"
 
@@ -364,7 +364,7 @@ class RetryTest {
         val events = mutableListOf<RetryEvent<*>>()
 
         retry(
-            listener = RetryListener(onSuccess = { events += it })
+            listener = RetryListener(onSuccess = { events += it }),
         ) {
             if (it.attempt < 3) {
                 throw IllegalStateException()
@@ -393,7 +393,7 @@ class RetryTest {
         assertFailsWith<IllegalStateException> {
             retry(
                 retryOn = RetryOn.thrown { false },
-                listener = RetryListener(onFailure = { events += it })
+                listener = RetryListener(onFailure = { events += it }),
             ) {
                 throw throwable
             }

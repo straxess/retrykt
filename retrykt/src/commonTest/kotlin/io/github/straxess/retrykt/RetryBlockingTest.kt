@@ -122,7 +122,7 @@ class RetryBlockingTest {
             retryBlocking(
                 backoff = object : Backoff {
                     override fun nextDelay(context: BackoffContext) = (-1).milliseconds
-                }
+                },
             ) {
                 error("task should not succeed")
             }
@@ -282,7 +282,7 @@ class RetryBlockingTest {
         val events = mutableListOf<String>()
 
         retryBlocking(
-            listener = RetryListener(onRetry = { events += "retry-${it.context.attempt}" })
+            listener = RetryListener(onRetry = { events += "retry-${it.context.attempt}" }),
         ) {
             events += "attempt-${it.attempt}"
 
@@ -321,7 +321,7 @@ class RetryBlockingTest {
         val events = mutableListOf<RetryEvent<*>>()
 
         retryBlocking(
-            listener = RetryListener(onSuccess = { events += it })
+            listener = RetryListener(onSuccess = { events += it }),
         ) {
             if (it.attempt < 3) {
                 throw IllegalStateException()
@@ -350,7 +350,7 @@ class RetryBlockingTest {
         assertFailsWith<IllegalStateException> {
             retryBlocking(
                 retryOn = RetryOn.thrown { false },
-                listener = RetryListener(onFailure = { events += it })
+                listener = RetryListener(onFailure = { events += it }),
             ) {
                 throw throwable
             }

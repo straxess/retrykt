@@ -16,6 +16,6 @@ internal actual fun sleep(duration: Duration) {
     }
 
     throw UnsupportedOperationException(
-        "Blocking sleep is not supported for Kotlin/JS and Kotlin/Wasm"
+        "Blocking sleep is not supported for Kotlin/JS and Kotlin/Wasm",
     )
 }

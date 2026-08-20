@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.vanniktech.mavenPublish)
+    alias(libs.plugins.ktlint)
 }
 
 group = "io.github.straxess"
@@ -63,6 +64,19 @@ kotlin {
             implementation(libs.kotlin.test)
         }
     }
+}
+
+tasks.named("check") {
+    dependsOn("ktlintCheck")
+}
+
+configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
+    additionalEditorconfig.set(
+        mapOf(
+            "ktlint_code_style" to "intellij_idea",
+            "ktlint_standard_no-wildcard-imports" to "disabled",
+        ),
+    )
 }
 
 mavenPublishing {
