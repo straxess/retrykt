@@ -63,6 +63,7 @@ RetryKt provides these capabilities in a small, focused library without framewor
 
 Instead of writing ad-hoc retry loops, you define **what** to retry (`RetryOn`)
 and **how** to schedule retries (`Backoff` + `Jitter`), with optional observability through `RetryListener`.
+
 ---
 
 ## Installation
