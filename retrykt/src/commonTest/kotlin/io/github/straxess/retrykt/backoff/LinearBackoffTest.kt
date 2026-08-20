@@ -60,9 +60,9 @@ class LinearBackoffTest {
     }
 
     @Test
-    fun `throws IllegalArgumentException when max delay is less than initial delay`() {
+    fun `throws IllegalArgumentException when max delay is less than increment`() {
         assertFailsWith<IllegalArgumentException> {
-            DecorrelatedBackoff(initialDelay = 100.milliseconds, maxDelay = 99.milliseconds)
+            LinearBackoff(increment = 100.milliseconds, maxDelay = 99.milliseconds)
         }
     }
 }

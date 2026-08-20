@@ -81,7 +81,7 @@ class ExponentialBackoffTest {
     @Test
     fun `throws IllegalArgumentException when max delay is less than initial delay`() {
         assertFailsWith<IllegalArgumentException> {
-            DecorrelatedBackoff(initialDelay = 100.milliseconds, maxDelay = 99.milliseconds)
+            ExponentialBackoff(initialDelay = 100.milliseconds, maxDelay = 99.milliseconds)
         }
     }
 }

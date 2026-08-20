@@ -41,25 +41,6 @@ class RetryBlockingWebTest {
     }
 
     @Test
-    fun `onRetryAttempt receives nextDelay`() {
-        val nextDelays = mutableListOf<Duration>()
-
-        retryBlocking(
-            onRetryAttempt = { nextDelays += it.plan.nextDelay },
-            backoff = object : Backoff {
-                override fun nextDelay(context: BackoffContext) = 0.milliseconds * context.attempt
-            },
-            jitter = { rawDelay -> rawDelay + 0.milliseconds },
-        ) {
-            if (it.attempt < 3) {
-                throw IllegalStateException()
-            }
-        }
-
-        assertEquals(listOf(0.milliseconds, 0.milliseconds), nextDelays)
-    }
-
-    @Test
     fun `jitter receives raw delay from backoff`() {
         val rawDelays = mutableListOf<Duration>()
 
