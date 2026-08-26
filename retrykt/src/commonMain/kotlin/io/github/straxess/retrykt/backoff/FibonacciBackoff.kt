@@ -2,6 +2,11 @@ package io.github.straxess.retrykt.backoff
 
 import kotlin.time.Duration
 
+/**
+ * Increases delays according to the Fibonacci sequence.
+ *
+ * The first two delays are [initialDelay], followed by the sum of the two previous delays, capped at [maxDelay].
+ */
 public class FibonacciBackoff(
     public val initialDelay: Duration,
     public val maxDelay: Duration = Duration.INFINITE,
