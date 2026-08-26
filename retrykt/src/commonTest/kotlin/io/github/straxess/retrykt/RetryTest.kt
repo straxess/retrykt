@@ -513,7 +513,7 @@ class RetryTest {
     }
 
     @Test
-    fun `onFailure receives last returned outcome when max attempts are reached`() = runTest {
+    fun `onFailure receives returned outcome when max attempts are reached`() = runTest {
         val events = mutableListOf<RetryEvent<*>>()
 
         assertFailsWith<RetryStoppedException> {
@@ -595,5 +595,33 @@ class RetryTest {
         }
 
         assertEquals(listOf(null, 150.milliseconds, 250.milliseconds), lastAppliedDelays)
+    }
+
+    @Test
+    fun `onRetry receives current outcome and previous outcome in context`() = runTest {
+        val retryEvents = mutableListOf<RetryEvent<*>>()
+
+        val result = retry(
+            retryOn = RetryOn.returned { it == "first" || it == "second" },
+            listener = RetryListener(onRetry = { retryEvents += it }),
+        ) {
+            when (it.attempt) {
+                1 -> "first"
+                2 -> "second"
+                else -> "third"
+            }
+        }
+
+        assertEquals(2, retryEvents.size)
+        assertEquals("third", result)
+
+        assertEquals("first", (retryEvents[0].outcome as AttemptOutcome.Returned).value)
+        assertEquals(null, retryEvents[0].context.prevOutcome)
+
+        assertEquals("second", (retryEvents[1].outcome as AttemptOutcome.Returned).value)
+
+        val prevOutcome = retryEvents[1].context.prevOutcome
+        assertTrue(prevOutcome is AttemptOutcome.Returned)
+        assertEquals("first", prevOutcome.value)
     }
 }

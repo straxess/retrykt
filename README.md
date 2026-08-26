@@ -175,17 +175,21 @@ val response = retry(
 
 ### Access the retry context
 
-Each attempt gets a `RetryContext`.
+Each attempt gets a `RetryContext` with info about the current attempt and the outcome of the previous attempt.
 
 ```kotlin
 retry(maxAttempts = 3) { ctx ->
     log.info("Attempt ${ctx.attempt}/${ctx.maxAttempts}")
 
+    if (ctx.prevOutcome is AttemptOutcome.Thrown) {
+        log.info("Previous attempt failed.")
+    }
+
     uploadFile()
 }
 ```
 
-### Observe retry lifecycle
+### Observe the retry lifecycle
 
 Use `RetryListener` to observe retry attempts and their outcomes.
 
@@ -206,6 +210,8 @@ retry(
     fetchData()
 }
 ```
+
+Each `RetryEvent` contains the outcome of the completed attempt and the`RetryContext` in which it was executed.
 
 ---
 
