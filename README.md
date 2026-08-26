@@ -278,23 +278,26 @@ wait
 
 This separation allows the same backoff strategy to be combined with different jitter strategies.
 
-Built-in backoff implementations include:
+Built-in backoff implementations include the following examples:
 
-```kotlin
-NoBackoff            // 0ms
-ConstantBackoff      // 100ms, 100ms, 100ms
-LinearBackoff        // 100ms, 200ms, 300ms
-ExponentialBackoff   // 100ms, 200ms, 400ms
-DecorrelatedBackoff  // randomized, based on the previous applied delay
-```
+| Backoff              | Attempt 1 | Attempt 2 | Attempt 3 | Attempt 4 | Attempt 5 | Attempt 6 |
+|----------------------|----------:|----------:|----------:|----------:|----------:|----------:|
+| `NoBackoff`          |        0s |        0s |        0s |        0s |        0s |        0s |
+| `ConstantBackoff`    |        1s |        1s |        1s |        1s |        1s |        1s |
+| `LinearBackoff`      |        1s |        2s |        3s |        4s |        5s |        6s |
+| `FibonacciBackoff`   |        1s |        1s |        2s |        3s |        5s |        8s |
+| `ExponentialBackoff` |        1s |        2s |        4s |        8s |       16s |       32s |
 
-Choose the strategy that matches your workload.
+`DecorrelatedBackoff` is randomized based on the previous actual delay.
+
+Choose the strategy that matches your workload:
 
 | Strategy              | Typical use case                                                        |
 |-----------------------|-------------------------------------------------------------------------|
 | `NoBackoff`           | Tests, CPU-bound operations                                             |
 | `ConstantBackoff`     | Fixed polling intervals                                                 |
 | `LinearBackoff`       | Gradually increasing retry intervals                                    |
+| `FibonacciBackoff`    | Moderate growth between linear and exponential backoff                  |
 | `ExponentialBackoff`  | Network requests, cloud APIs, distributed systems                       |
 | `DecorrelatedBackoff` | Distributed systems where randomized, decorrelated delays are desirable |
 
@@ -328,11 +331,9 @@ Custom backoffs receive the current attempt and the actual delay used before it.
 
 ```kotlin
 class MyBackoff : Backoff {
-
     override fun nextDelay(context: BackoffContext): Duration {
         val attempt = context.attempt
         val lastAppliedDelay = context.lastAppliedDelay
-
         // ...
     }
 }

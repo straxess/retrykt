@@ -93,8 +93,8 @@ mavenPublishing {
 
     pom {
         name = "RetryKt"
-        description = "A lightweight KMP library for retrying operations with configurable retry conditions, " +
-                "backoff, jitter, blocking and suspending APIs, and lifecycle observability."
+        description =
+            "A lightweight KMP library for retrying operations with configurable retry conditions, backoff, jitter, blocking and suspending APIs, and lifecycle observability."
         url = "https://github.com/straxess/retrykt"
         inceptionYear = "2026"
 
