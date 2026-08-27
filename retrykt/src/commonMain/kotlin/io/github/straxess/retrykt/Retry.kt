@@ -26,21 +26,22 @@ public suspend fun <T> retry(
     jitter: Jitter = NoJitter,
     retryOn: RetryOn<T> = RetryOn.default(),
     listener: RetryListener = RetryListener(),
-    task: suspend (RetryContext) -> T,
+    task: suspend (RetryContext<T>) -> T,
 ): T {
     require(maxAttempts > 0) {
         "maxAttempts must be greater than zero."
     }
 
+    var outcome: AttemptOutcome<T>? = null
     var lastAppliedDelay: Duration? = null
     var attempt = 1
 
     while (true) {
         currentCoroutineContext().ensureActive()
 
-        val retryContext = RetryContext(attempt, maxAttempts)
+        val retryContext = RetryContext(attempt, maxAttempts, outcome)
 
-        val outcome = try {
+        outcome = try {
             val returned = task(retryContext)
             AttemptOutcome.Returned(returned)
         } catch (t: Throwable) {
@@ -105,19 +106,20 @@ public fun <T> retryBlocking(
     jitter: Jitter = NoJitter,
     retryOn: RetryOn<T> = RetryOn.default(),
     listener: RetryListener = RetryListener(),
-    task: (RetryContext) -> T,
+    task: (RetryContext<T>) -> T,
 ): T {
     require(maxAttempts > 0) {
         "maxAttempts must be greater than zero."
     }
 
+    var outcome: AttemptOutcome<T>? = null
     var lastAppliedDelay: Duration? = null
     var attempt = 1
 
     while (true) {
-        val retryContext = RetryContext(attempt, maxAttempts)
+        val retryContext = RetryContext(attempt, maxAttempts, outcome)
 
-        val outcome = try {
+        outcome = try {
             val returned = task(retryContext)
             AttemptOutcome.Returned(returned)
         } catch (t: Throwable) {
