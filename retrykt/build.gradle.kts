@@ -26,7 +26,7 @@ kotlin {
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
 
-        withJava() // enable java compilation support
+        withJava()
         withHostTestBuilder {}.configure {}
         withDeviceTestBuilder {
             sourceSetTreeName = "test"
@@ -50,6 +50,7 @@ kotlin {
     js {
         nodejs()
     }
+
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         nodejs()
@@ -67,10 +68,6 @@ kotlin {
     }
 }
 
-tasks.named("check") {
-    dependsOn("ktlintCheck")
-}
-
 configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
     additionalEditorconfig.set(
         mapOf(
@@ -80,9 +77,12 @@ configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
     )
 }
 
+tasks.named("check") {
+    dependsOn("ktlintCheck")
+}
+
 mavenPublishing {
     publishToMavenCentral()
-
     signAllPublications()
 
     coordinates(
