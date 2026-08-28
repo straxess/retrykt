@@ -684,19 +684,25 @@ policies, backoff, jitter, and callbacks.
 
 RetryKt currently supports:
 
-| Platform                      | Supported |
-|-------------------------------|-----------|
-| JVM                           | ✅        |
-| Android                       | ✅        |
-| iOS (x64)                     | ✅        |
-| iOS (ARM64)                   | ✅        |
-| iOS Simulator (Apple Silicon) | ✅        |
-| macOS (Apple Silicon)         | ✅        |
-| Windows                       | ✅        |
-| Linux x64                     | ✅        |
-| Linux ARM64                   | ✅        |
-| JavaScript                    | ✅        |
-| WebAssembly                   | ✅        |
+| Platform                          | Supported |
+|-----------------------------------|-----------|
+| JVM                               | ✅        |
+| Android                           | ✅        |
+| Android Native (x64)              | ✅        |
+| Android Native (ARM64)            | ✅        |
+| iOS (x64)                         | ✅        |
+| iOS (ARM64)                       | ✅        |
+| iOS Simulator (Apple Silicon)     | ✅        |
+| watchOS (ARM64)                   | ✅        |
+| watchOS Simulator (Apple Silicon) | ✅        |
+| tvOS (ARM64)                      | ✅        |
+| tvOS Simulator (Apple Silicon)    | ✅        |
+| macOS (Apple Silicon)             | ✅        |
+| Windows (x64)                     | ✅        |
+| Linux (x64)                       | ✅        |
+| Linux (ARM64)                     | ✅        |
+| JavaScript                        | ✅        |
+| WebAssembly                       | ✅        |
 
 ---
 
