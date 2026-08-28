@@ -8,14 +8,21 @@ import kotlin.time.Duration.Companion.nanoseconds
 class SleepTest {
 
     @Test
-    fun `works with zero`() {
+    fun `works with zero duration`() {
         sleep(Duration.ZERO)
     }
 
     @Test
-    fun `throws IllegalArgumentException if duration is negative`() {
+    fun `throws IllegalArgumentException for negative duration`() {
         assertFailsWith<IllegalArgumentException> {
             sleep((-1).nanoseconds)
+        }
+    }
+
+    @Test
+    fun `throws IllegalArgumentException for infinite duration`() {
+        assertFailsWith<IllegalArgumentException> {
+            sleep(Duration.INFINITE)
         }
     }
 }

@@ -8,14 +8,6 @@ import kotlin.time.Duration
  * Zero is allowed so [io.github.straxess.retrykt.retryBlocking] works with
  * [io.github.straxess.retrykt.backoff.NoBackoff].
  */
-internal actual fun sleep(duration: Duration) {
-    require(!duration.isNegative())
-
-    if (duration == Duration.ZERO) {
-        return
-    }
-
-    throw UnsupportedOperationException(
-        "Blocking sleep is not supported for Kotlin/JS and Kotlin/Wasm",
-    )
-}
+internal actual fun sleepInternal(duration: Duration): Unit = throw UnsupportedOperationException(
+    "Blocking sleep is not supported for Kotlin/JS and Kotlin/Wasm",
+)

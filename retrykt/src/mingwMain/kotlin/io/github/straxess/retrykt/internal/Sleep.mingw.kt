@@ -8,13 +8,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * A positive [duration] less than 1 ms is rounded up to 1 ms
  * because `Sleep(0)` does not guarantee that the current thread will wait.
  */
-internal actual fun sleep(duration: Duration) {
-    require(!duration.isNegative())
-
-    if (duration == Duration.ZERO) {
-        return
-    }
-
+internal actual fun sleepInternal(duration: Duration) {
     var remaining = duration
     val maxChunk = UInt.MAX_VALUE.toLong().milliseconds
 
