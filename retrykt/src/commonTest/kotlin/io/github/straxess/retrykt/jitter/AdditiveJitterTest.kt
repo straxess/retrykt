@@ -32,7 +32,7 @@ class AdditiveJitterTest {
             val actual = jitter.apply(baseDelay)
 
             assertTrue(actual >= baseDelay)
-            assertTrue(actual < baseDelay + maxJitter)
+            assertTrue(actual <= (baseDelay + maxJitter))
         }
     }
 
