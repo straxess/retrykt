@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "io.github.straxess"
-version = "0.4.0"
+version = "0.4.1"
 
 kotlin {
     explicitApi()
