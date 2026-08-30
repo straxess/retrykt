@@ -36,9 +36,18 @@ kotlin {
         }
     }
 
+    androidNativeArm64()
+    androidNativeX64()
+
     iosX64()
     iosArm64()
     iosSimulatorArm64()
+
+    watchosDeviceArm64()
+    watchosSimulatorArm64()
+
+    tvosArm64()
+    tvosSimulatorArm64()
 
     macosArm64()
 

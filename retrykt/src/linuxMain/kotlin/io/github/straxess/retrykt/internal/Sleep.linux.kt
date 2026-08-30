@@ -13,20 +13,14 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
 @OptIn(ExperimentalForeignApi::class)
-internal actual fun sleep(duration: Duration) {
-    require(!duration.isNegative())
-
-    if (duration == Duration.ZERO) {
-        return
-    }
-
+internal actual fun sleepInternal(duration: Duration) {
     val mark = TimeSource.Monotonic.markNow()
     var remainingDuration = duration
 
     memScoped {
         val request = alloc<timespec>()
 
-        while (true) {
+        while (remainingDuration > Duration.ZERO) {
             val seconds = remainingDuration.inWholeSeconds
             val nanos = (remainingDuration - seconds.seconds).inWholeNanoseconds
             request.tv_sec = seconds
@@ -40,9 +34,6 @@ internal actual fun sleep(duration: Duration) {
 
             // Recalculate from a monotonic clock so repeated signals cannot extend the wait.
             remainingDuration = duration - mark.elapsedNow()
-            if (remainingDuration <= Duration.ZERO) {
-                return
-            }
         }
     }
 }
