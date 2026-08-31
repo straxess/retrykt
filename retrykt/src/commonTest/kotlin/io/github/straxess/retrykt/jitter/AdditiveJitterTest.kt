@@ -11,29 +11,24 @@ import kotlin.time.Duration.Companion.seconds
 class AdditiveJitterTest {
 
     @Test
-    fun `returns delay in expected range`() {
+    fun `returns delays in expected range and applies jitter`() {
         val maxJitter = 100.milliseconds
         val jitter = AdditiveJitter(maxJitter)
         val baseDelay = 10.seconds
 
-        val actual = jitter.apply(baseDelay)
-
-        assertTrue(actual >= baseDelay)
-        assertTrue(actual < baseDelay + maxJitter)
-    }
-
-    @Test
-    fun `returns delays in expected range for many invocations`() {
-        val maxJitter = 100.milliseconds
-        val jitter = AdditiveJitter(maxJitter)
-        val baseDelay = 10.seconds
-
-        repeat(10_000) {
+        var hasJitter = false
+        repeat(1_000_000) {
             val actual = jitter.apply(baseDelay)
 
             assertTrue(actual >= baseDelay)
             assertTrue(actual <= (baseDelay + maxJitter))
+
+            if (actual > baseDelay) {
+                hasJitter = true
+            }
         }
+
+        assertTrue(hasJitter)
     }
 
     @Test
