@@ -484,9 +484,9 @@ It does not try to provide:
 - Bulkheads
 - Service discovery
 - Metrics collection
-- Scheduling
+- General-purpose scheduling
 
-Use dedicated libraries when you need those pieces.
+Use dedicated libraries when you need these capabilities.
 
 ---
 
