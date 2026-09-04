@@ -10,7 +10,7 @@ import io.github.straxess.retrykt.RetryEvent
 public interface RetryListener {
 
     /**
-     * Called before another attempt is made.
+     * Called after an attempt is selected for retry and before the retry delay.
      */
     public fun onRetry(retryEvent: RetryEvent<*>) {}
 
