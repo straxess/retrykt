@@ -1,5 +1,6 @@
 package io.github.straxess.retrykt.backoff
 
+import io.github.straxess.retrykt.internal.requireFiniteNonNegative
 import kotlin.time.Duration
 
 /**
@@ -10,9 +11,7 @@ public class ConstantBackoff(
 ) : Backoff {
 
     init {
-        require(delay >= Duration.ZERO) {
-            "delay must not be negative."
-        }
+        requireFiniteNonNegative(delay, "delay")
     }
 
     override fun nextDelay(context: BackoffContext): Duration = delay

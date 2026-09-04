@@ -1,5 +1,6 @@
 package io.github.straxess.retrykt.backoff
 
+import io.github.straxess.retrykt.internal.requireFiniteNonNegative
 import kotlin.random.Random
 import kotlin.time.Duration
 
@@ -17,13 +18,7 @@ public class DecorrelatedBackoff(
 ) : Backoff {
 
     init {
-        require(initialDelay >= Duration.ZERO) {
-            "initialDelay must be non-negative."
-        }
-
-        require(initialDelay.isFinite()) {
-            "initialDelay must be finite."
-        }
+        requireFiniteNonNegative(initialDelay, "initialDelay")
 
         require(maxDelay > Duration.ZERO) {
             "maxDelay must be positive."

@@ -1,5 +1,6 @@
 package io.github.straxess.retrykt.backoff
 
+import io.github.straxess.retrykt.internal.requireFiniteNonNegative
 import kotlin.time.Duration
 
 /**
@@ -11,9 +12,7 @@ public class LinearBackoff(
 ) : Backoff {
 
     init {
-        require(increment >= Duration.ZERO) {
-            "increment must not be negative."
-        }
+        requireFiniteNonNegative(increment, "increment")
 
         require(maxDelay >= increment) {
             "maxDelay must not be less than increment."

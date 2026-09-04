@@ -3,6 +3,7 @@ package io.github.straxess.retrykt.backoff
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 class ConstantBackoffTest {
@@ -19,9 +20,16 @@ class ConstantBackoffTest {
     }
 
     @Test
-    fun `ConstantBackoff throws IllegalArgumentException if constant delay is less than 0`() {
+    fun `throws IllegalArgumentException if constant delay is less than 0`() {
         assertFailsWith<IllegalArgumentException> {
             ConstantBackoff((-10).seconds)
+        }
+    }
+
+    @Test
+    fun `throws IllegalArgumentException if infinite constant delay`() {
+        assertFailsWith<IllegalArgumentException> {
+            ConstantBackoff(Duration.INFINITE)
         }
     }
 }

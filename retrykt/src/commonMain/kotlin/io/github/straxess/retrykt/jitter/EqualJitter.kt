@@ -1,5 +1,6 @@
 package io.github.straxess.retrykt.jitter
 
+import io.github.straxess.retrykt.internal.requireFiniteNonNegative
 import kotlin.random.Random
 import kotlin.time.Duration
 
@@ -10,9 +11,7 @@ import kotlin.time.Duration
 public object EqualJitter : Jitter {
 
     override fun apply(rawDelay: Duration): Duration {
-        require(rawDelay >= Duration.ZERO) {
-            "rawDelay must be non-negative."
-        }
+        requireFiniteNonNegative(rawDelay, "rawDelay")
 
         if (rawDelay == Duration.ZERO) {
             return Duration.ZERO

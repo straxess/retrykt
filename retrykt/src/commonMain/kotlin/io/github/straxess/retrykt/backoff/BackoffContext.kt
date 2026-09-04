@@ -10,7 +10,8 @@ public class BackoffContext internal constructor(
     public val attempt: Int,
 
     /**
-     * The actual delay before this attempt, or `null` for the first attempt.
+     * The actual delay applied before the current attempt, after backoff and jitter,
+     * or `null` for the first attempt.
      */
     public val lastAppliedDelay: Duration?,
 )

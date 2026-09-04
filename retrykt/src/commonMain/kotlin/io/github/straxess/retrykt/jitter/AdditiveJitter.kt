@@ -1,5 +1,6 @@
 package io.github.straxess.retrykt.jitter
 
+import io.github.straxess.retrykt.internal.requireFiniteNonNegative
 import kotlin.random.Random
 import kotlin.time.Duration
 
@@ -13,13 +14,7 @@ public class AdditiveJitter(
 ) : Jitter {
 
     init {
-        require(maxJitter >= Duration.ZERO) {
-            "maxJitter must be non-negative."
-        }
-
-        require(maxJitter.isFinite()) {
-            "maxJitter must be finite."
-        }
+        requireFiniteNonNegative(maxJitter, "maxJitter")
     }
 
     override fun apply(rawDelay: Duration): Duration {

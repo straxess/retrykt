@@ -48,4 +48,11 @@ class FullJitterTest {
             FullJitter.apply((-100).milliseconds)
         }
     }
+
+    @Test
+    fun `throws IllegalArgumentException for infinite raw delay`() {
+        assertFailsWith<IllegalArgumentException> {
+            FullJitter.apply(Duration.INFINITE)
+        }
+    }
 }

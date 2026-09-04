@@ -53,9 +53,16 @@ class LinearBackoffTest {
     }
 
     @Test
-    fun `LinearBackoff throws IllegalArgumentException if increment is less than 0`() {
+    fun `throws IllegalArgumentException if increment is less than 0`() {
         assertFailsWith<IllegalArgumentException> {
             LinearBackoff((-10).seconds)
+        }
+    }
+
+    @Test
+    fun `throws IllegalArgumentException if infinite constant delay`() {
+        assertFailsWith<IllegalArgumentException> {
+            LinearBackoff(Duration.INFINITE)
         }
     }
 

@@ -3,6 +3,7 @@ package io.github.straxess.retrykt.backoff
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -22,7 +23,7 @@ class ExponentialBackoffTest {
     }
 
     @Test
-    fun `ExponentialBackoff respects max delay`() {
+    fun `respects max delay`() {
         val backoff = ExponentialBackoff(
             initialDelay = 100.milliseconds,
             multiplier = 2.0,
@@ -37,42 +38,49 @@ class ExponentialBackoffTest {
     }
 
     @Test
-    fun `ExponentialBackoff throws IllegalArgumentException if initialDelay is less than 0`() {
+    fun `throws IllegalArgumentException if initialDelay is less than 0`() {
         assertFailsWith<IllegalArgumentException> {
             ExponentialBackoff((-10).seconds)
         }
     }
 
     @Test
-    fun `ExponentialBackoff throws IllegalArgumentException if multiplier is less than 1`() {
+    fun `throws IllegalArgumentException for infinite initial delay`() {
+        assertFailsWith<IllegalArgumentException> {
+            ExponentialBackoff(initialDelay = Duration.INFINITE)
+        }
+    }
+
+    @Test
+    fun `throws IllegalArgumentException if multiplier is less than 1`() {
         assertFailsWith<IllegalArgumentException> {
             ExponentialBackoff(10.seconds, 0.99)
         }
     }
 
     @Test
-    fun `ExponentialBackoff throws IllegalArgumentException if multiplier is negative infinity`() {
+    fun `throws IllegalArgumentException if multiplier is negative infinity`() {
         assertFailsWith<IllegalArgumentException> {
             ExponentialBackoff(10.seconds, Double.NEGATIVE_INFINITY)
         }
     }
 
     @Test
-    fun `ExponentialBackoff throws IllegalArgumentException if multiplier is positive infinity`() {
+    fun `throws IllegalArgumentException if multiplier is positive infinity`() {
         assertFailsWith<IllegalArgumentException> {
             ExponentialBackoff(10.seconds, Double.POSITIVE_INFINITY)
         }
     }
 
     @Test
-    fun `ExponentialBackoff throws IllegalArgumentException if multiplier is NaN`() {
+    fun `throws IllegalArgumentException if multiplier is NaN`() {
         assertFailsWith<IllegalArgumentException> {
             ExponentialBackoff(10.seconds, Double.NaN)
         }
     }
 
     @Test
-    fun `ExponentialBackoff throws IllegalArgumentException if maxDelay is less than 0`() {
+    fun `throws IllegalArgumentException if maxDelay is less than 0`() {
         assertFailsWith<IllegalArgumentException> {
             ExponentialBackoff(10.seconds, maxDelay = (-10).seconds)
         }
