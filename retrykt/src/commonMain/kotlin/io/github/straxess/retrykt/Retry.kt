@@ -6,6 +6,8 @@ import io.github.straxess.retrykt.backoff.NoBackoff
 import io.github.straxess.retrykt.internal.sleep
 import io.github.straxess.retrykt.jitter.Jitter
 import io.github.straxess.retrykt.jitter.NoJitter
+import io.github.straxess.retrykt.listener.RetryDecision
+import io.github.straxess.retrykt.listener.RetryEvent
 import io.github.straxess.retrykt.listener.RetryListener
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -102,8 +104,12 @@ public suspend fun <T> retry(
             "jitter delay must not be negative."
         }
 
+        val retryDecision = RetryDecision(
+            nextDelay = appliedDelay,
+        )
+
         currentCoroutineContext().ensureActive()
-        listener.onRetry(retryEvent)
+        listener.onRetry(retryEvent, retryDecision)
 
         delay(appliedDelay)
 
@@ -201,7 +207,11 @@ public fun <T> retryBlocking(
             "jitter delay must not be negative."
         }
 
-        listener.onRetry(retryEvent)
+        val retryDecision = RetryDecision(
+            nextDelay = appliedDelay,
+        )
+
+        listener.onRetry(retryEvent, retryDecision)
 
         sleep(appliedDelay)
 

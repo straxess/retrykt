@@ -2,6 +2,9 @@ package io.github.straxess.retrykt
 
 import io.github.straxess.retrykt.backoff.Backoff
 import io.github.straxess.retrykt.backoff.BackoffContext
+import io.github.straxess.retrykt.backoff.ConstantBackoff
+import io.github.straxess.retrykt.listener.RetryDecision
+import io.github.straxess.retrykt.listener.RetryEvent
 import io.github.straxess.retrykt.listener.RetryListener
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -276,7 +279,7 @@ class RetryTest {
         val events = mutableListOf<RetryEvent<*>>()
 
         retry(
-            listener = RetryListener(onRetry = { events += it }),
+            listener = RetryListener(onRetry = { event, _ -> events += event }),
         ) {
             when (it.attempt) {
                 1 -> throw first
@@ -306,7 +309,7 @@ class RetryTest {
 
         retry(
             retryOn = RetryOn.returned { it == "retry" },
-            listener = RetryListener(onRetry = { events += it }),
+            listener = RetryListener(onRetry = { event, _ -> events += event }),
         ) {
             if (it.attempt < 2) {
                 "retry"
@@ -324,11 +327,38 @@ class RetryTest {
     }
 
     @Test
+    fun `onRetry receives event and decision`() = runTest {
+        val callbacks = mutableListOf<Pair<RetryEvent<*>, RetryDecision>>()
+
+        retry(
+            backoff = ConstantBackoff(100.milliseconds),
+            retryOn = RetryOn.returned { it == "retry" },
+            listener = RetryListener(
+                onRetry = { event, decision -> callbacks += event to decision },
+            ),
+        ) {
+            if (it.attempt < 2) {
+                "retry"
+            } else {
+                "success"
+            }
+        }
+
+        assertEquals(1, callbacks.size)
+
+        val (event, decision) = callbacks.single()
+
+        assertTrue(event.outcome is AttemptOutcome.Returned)
+        assertEquals("retry", event.outcome.value)
+        assertEquals(100.milliseconds, decision.nextDelay)
+    }
+
+    @Test
     fun `onRetry is called before next attempt`() = runTest {
         val events = mutableListOf<String>()
 
         retry(
-            listener = RetryListener(onRetry = { events += "retry-${it.context.attempt}" }),
+            listener = RetryListener(onRetry = { event, _ -> events += "retry-${event.context.attempt}" }),
         ) {
             events += "attempt-${it.attempt}"
 
@@ -440,7 +470,7 @@ class RetryTest {
 
         retry(
             listener = RetryListener(
-                onRetry = { events += "retry-${it.context.attempt}" },
+                onRetry = { event, _ -> events += "retry-${event.context.attempt}" },
                 onSuccess = { events += "success-${it.context.attempt}" },
                 onFailure = { events += "failure-${it.context.attempt}" },
             ),
@@ -464,7 +494,7 @@ class RetryTest {
             retry(
                 maxAttempts = 3,
                 listener = RetryListener(
-                    onRetry = { events += "retry-${it.context.attempt}" },
+                    onRetry = { event, _ -> events += "retry-${event.context.attempt}" },
                     onSuccess = { events += "success-${it.context.attempt}" },
                     onFailure = { events += "failure-${it.context.attempt}" },
                 ),
@@ -505,7 +535,7 @@ class RetryTest {
         assertFailsWith<RetryStoppedException> {
             retry(
                 maxAttempts = 2,
-                listener = RetryListener(onRetry = { retryEvents += it }),
+                listener = RetryListener(onRetry = { event, _ -> retryEvents += event }),
             ) {
                 throw IllegalStateException()
             }
@@ -545,7 +575,7 @@ class RetryTest {
         assertFailsWith<CancellationException> {
             retry(
                 listener = RetryListener(
-                    onRetry = { events += "retry" },
+                    onRetry = { _, _ -> events += "retry" },
                     onSuccess = { events += "success" },
                     onFailure = { events += "failure" },
                 ),
@@ -606,7 +636,7 @@ class RetryTest {
 
         val result = retry(
             retryOn = RetryOn.returned { it == "first" || it == "second" },
-            listener = RetryListener(onRetry = { retryEvents += it }),
+            listener = RetryListener(onRetry = { event, _ -> retryEvents += event }),
         ) {
             when (it.attempt) {
                 1 -> "first"

@@ -2,6 +2,7 @@ package io.github.straxess.retrykt
 
 import io.github.straxess.retrykt.backoff.Backoff
 import io.github.straxess.retrykt.backoff.BackoffContext
+import io.github.straxess.retrykt.listener.RetryEvent
 import io.github.straxess.retrykt.listener.RetryListener
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.*
@@ -233,7 +234,7 @@ class RetryBlockingTest {
         val events = mutableListOf<RetryEvent<*>>()
 
         retryBlocking(
-            listener = RetryListener(onRetry = { events += it }),
+            listener = RetryListener(onRetry = { event, _ -> events += event }),
         ) {
             when (it.attempt) {
                 1 -> throw first
@@ -263,7 +264,7 @@ class RetryBlockingTest {
 
         retryBlocking(
             retryOn = RetryOn.returned { it == "retry" },
-            listener = RetryListener(onRetry = { events += it }),
+            listener = RetryListener(onRetry = { event, _ -> events += event }),
         ) {
             if (it.attempt < 2) {
                 "retry"
@@ -285,7 +286,7 @@ class RetryBlockingTest {
         val events = mutableListOf<String>()
 
         retryBlocking(
-            listener = RetryListener(onRetry = { events += "retry-${it.context.attempt}" }),
+            listener = RetryListener(onRetry = { event, _ -> events += "retry-${event.context.attempt}" }),
         ) {
             events += "attempt-${it.attempt}"
 
@@ -397,7 +398,7 @@ class RetryBlockingTest {
 
         retryBlocking(
             listener = RetryListener(
-                onRetry = { events += "retry-${it.context.attempt}" },
+                onRetry = { event, _ -> events += "retry-${event.context.attempt}" },
                 onSuccess = { events += "success-${it.context.attempt}" },
                 onFailure = { events += "failure-${it.context.attempt}" },
             ),
@@ -421,7 +422,7 @@ class RetryBlockingTest {
             retryBlocking(
                 maxAttempts = 3,
                 listener = RetryListener(
-                    onRetry = { events += "retry-${it.context.attempt}" },
+                    onRetry = { event, _ -> events += "retry-${event.context.attempt}" },
                     onSuccess = { events += "success-${it.context.attempt}" },
                     onFailure = { events += "failure-${it.context.attempt}" },
                 ),
@@ -462,7 +463,7 @@ class RetryBlockingTest {
         assertFailsWith<RetryStoppedException> {
             retryBlocking(
                 maxAttempts = 2,
-                listener = RetryListener(onRetry = { retryEvents += it }),
+                listener = RetryListener(onRetry = { event, _ -> retryEvents += event }),
             ) {
                 throw IllegalStateException()
             }
@@ -502,7 +503,7 @@ class RetryBlockingTest {
         assertFailsWith<CancellationException> {
             retryBlocking(
                 listener = RetryListener(
-                    onRetry = { events += "retry" },
+                    onRetry = { _, _ -> events += "retry" },
                     onSuccess = { events += "success" },
                     onFailure = { events += "failure" },
                 ),
@@ -520,7 +521,7 @@ class RetryBlockingTest {
 
         val result = retryBlocking(
             retryOn = RetryOn.returned { it == "first" || it == "second" },
-            listener = RetryListener(onRetry = { retryEvents += it }),
+            listener = RetryListener(onRetry = { event, _ -> retryEvents += event }),
         ) {
             when (it.attempt) {
                 1 -> "first"
