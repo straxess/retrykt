@@ -1,5 +1,6 @@
 package io.github.straxess.retrykt.backoff
 
+import io.github.straxess.retrykt.internal.requireFiniteNonNegative
 import kotlin.time.Duration
 
 /**
@@ -11,9 +12,7 @@ public class LinearBackoff(
 ) : Backoff {
 
     init {
-        require(increment >= Duration.ZERO) {
-            "increment must not be negative."
-        }
+        requireFiniteNonNegative(increment, "increment")
 
         require(maxDelay >= increment) {
             "maxDelay must not be less than increment."
@@ -21,10 +20,24 @@ public class LinearBackoff(
     }
 
     override fun nextDelay(context: BackoffContext): Duration {
-        val delay = increment * context.attempt
+        val attempt = context.attempt
 
-        val cappedDelay = delay.coerceAtMost(maxDelay)
+        if (increment == Duration.ZERO) {
+            return Duration.ZERO
+        }
 
-        return cappedDelay
+        if (increment == maxDelay) {
+            return maxDelay
+        }
+
+        if (!maxDelay.isFinite()) {
+            return increment * attempt
+        }
+
+        if (attempt >= maxDelay / increment) {
+            return maxDelay
+        }
+
+        return increment * attempt
     }
 }

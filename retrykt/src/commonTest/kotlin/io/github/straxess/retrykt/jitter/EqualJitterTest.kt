@@ -49,4 +49,11 @@ class EqualJitterTest {
             EqualJitter.apply((-100).milliseconds)
         }
     }
+
+    @Test
+    fun `throws IllegalArgumentException for infinite raw delay`() {
+        assertFailsWith<IllegalArgumentException> {
+            EqualJitter.apply(Duration.INFINITE)
+        }
+    }
 }

@@ -2,8 +2,8 @@ package io.github.straxess.retrykt.listener
 
 import io.github.straxess.retrykt.AttemptOutcome
 import io.github.straxess.retrykt.RetryContext
-import io.github.straxess.retrykt.RetryEvent
 import kotlin.test.Test
+import kotlin.time.Duration
 
 class RetryListenerTest {
 
@@ -18,9 +18,11 @@ class RetryListenerTest {
             ),
         )
 
+        val decision = RetryDecision(Duration.ZERO)
+
         val listener = object : RetryListener {}
 
-        listener.onRetry(event)
+        listener.onRetry(event, decision)
         listener.onSuccess(event)
         listener.onFailure(event)
     }
@@ -36,13 +38,15 @@ class RetryListenerTest {
             ),
         )
 
+        val decision = RetryDecision(Duration.ZERO)
+
         val listener = RetryListener(
             onRetry = null,
             onSuccess = null,
             onFailure = null,
         )
 
-        listener.onRetry(event)
+        listener.onRetry(event, decision)
         listener.onSuccess(event)
         listener.onFailure(event)
     }

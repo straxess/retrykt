@@ -1,7 +1,5 @@
 package io.github.straxess.retrykt.listener
 
-import io.github.straxess.retrykt.RetryEvent
-
 /**
  * Listens for retry lifecycle events.
  *
@@ -10,9 +8,12 @@ import io.github.straxess.retrykt.RetryEvent
 public interface RetryListener {
 
     /**
-     * Called before another attempt is made.
+     * Called when an attempt will be retried, before the retry delay is applied.
+     *
+     * @param retryEvent Event describing the completed attempt.
+     * @param retryDecision Decision describing the next retry attempt.
      */
-    public fun onRetry(retryEvent: RetryEvent<*>) {}
+    public fun onRetry(retryEvent: RetryEvent<*>, retryDecision: RetryDecision) {}
 
     /**
      * Called when the retry operation succeeds.
@@ -30,13 +31,13 @@ public interface RetryListener {
          * Creates a [RetryListener] from the given callbacks.
          */
         public operator fun invoke(
-            onRetry: ((RetryEvent<*>) -> Unit)? = null,
+            onRetry: ((RetryEvent<*>, RetryDecision) -> Unit)? = null,
             onSuccess: ((RetryEvent<*>) -> Unit)? = null,
             onFailure: ((RetryEvent<*>) -> Unit)? = null,
         ): RetryListener = object : RetryListener {
 
-            override fun onRetry(retryEvent: RetryEvent<*>) {
-                onRetry?.invoke(retryEvent)
+            override fun onRetry(retryEvent: RetryEvent<*>, retryDecision: RetryDecision) {
+                onRetry?.invoke(retryEvent, retryDecision)
             }
 
             override fun onSuccess(retryEvent: RetryEvent<*>) {

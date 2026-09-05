@@ -3,9 +3,12 @@ package io.github.straxess.retrykt
 import io.github.straxess.retrykt.backoff.Backoff
 import io.github.straxess.retrykt.backoff.BackoffContext
 import io.github.straxess.retrykt.backoff.NoBackoff
+import io.github.straxess.retrykt.internal.requireFiniteNonNegative
 import io.github.straxess.retrykt.internal.sleep
 import io.github.straxess.retrykt.jitter.Jitter
 import io.github.straxess.retrykt.jitter.NoJitter
+import io.github.straxess.retrykt.listener.RetryDecision
+import io.github.straxess.retrykt.listener.RetryEvent
 import io.github.straxess.retrykt.listener.RetryListener
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -79,13 +82,17 @@ public suspend fun <T> retry(
         val backoffContext = BackoffContext(attempt, lastAppliedDelay)
 
         val rawDelay = backoff.nextDelay(backoffContext)
-        requireValidDelay(rawDelay, "backoff")
+        requireFiniteNonNegative(rawDelay, "backoff delay")
 
         val appliedDelay = jitter.apply(rawDelay)
-        requireValidDelay(appliedDelay, "jitter")
+        requireFiniteNonNegative(appliedDelay, "jitter delay")
+
+        val retryDecision = RetryDecision(
+            nextDelay = appliedDelay,
+        )
 
         currentCoroutineContext().ensureActive()
-        listener.onRetry(retryEvent)
+        listener.onRetry(retryEvent, retryDecision)
 
         delay(appliedDelay)
 
@@ -96,6 +103,9 @@ public suspend fun <T> retry(
 
 /**
  * Blocking version of [retry]. Runs [task] until [retryOn] accepts its result or attempts run out.
+ *
+ * The function is only meaningful on platforms that support blocking waits.
+ * On JS and Wasm, it supports zero-delay retries only.
  *
  * Designed for blocking code. Use [retry] for suspending code.
  * [CancellationException] is never retried.
@@ -157,22 +167,20 @@ public fun <T> retryBlocking(
         val backoffContext = BackoffContext(attempt, lastAppliedDelay)
 
         val rawDelay = backoff.nextDelay(backoffContext)
-        requireValidDelay(rawDelay, "backoff")
+        requireFiniteNonNegative(rawDelay, "backoff delay")
 
         val appliedDelay = jitter.apply(rawDelay)
-        requireValidDelay(appliedDelay, "jitter")
+        requireFiniteNonNegative(appliedDelay, "jitter delay")
 
-        listener.onRetry(retryEvent)
+        val retryDecision = RetryDecision(
+            nextDelay = appliedDelay,
+        )
+
+        listener.onRetry(retryEvent, retryDecision)
 
         sleep(appliedDelay)
 
         lastAppliedDelay = appliedDelay
         attempt++
-    }
-}
-
-private fun requireValidDelay(delay: Duration, source: String) {
-    require(delay >= Duration.ZERO && delay.isFinite()) {
-        "$source delay must be finite and non-negative."
     }
 }

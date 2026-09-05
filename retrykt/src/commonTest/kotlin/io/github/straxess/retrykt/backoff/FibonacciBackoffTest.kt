@@ -3,6 +3,7 @@ package io.github.straxess.retrykt.backoff
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 class FibonacciBackoffTest {
@@ -36,6 +37,13 @@ class FibonacciBackoffTest {
     fun `throws IllegalArgumentException if initialDelay is less than 0`() {
         assertFailsWith<IllegalArgumentException> {
             FibonacciBackoff((-10).seconds)
+        }
+    }
+
+    @Test
+    fun `throws IllegalArgumentException if infinite constant delay`() {
+        assertFailsWith<IllegalArgumentException> {
+            FibonacciBackoff(Duration.INFINITE)
         }
     }
 

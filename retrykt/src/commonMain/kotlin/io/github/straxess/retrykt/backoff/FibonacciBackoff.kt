@@ -1,5 +1,6 @@
 package io.github.straxess.retrykt.backoff
 
+import io.github.straxess.retrykt.internal.requireFiniteNonNegative
 import kotlin.time.Duration
 
 /**
@@ -13,9 +14,7 @@ public class FibonacciBackoff(
 ) : Backoff {
 
     init {
-        require(initialDelay >= Duration.ZERO) {
-            "initialDelay must not be negative."
-        }
+        requireFiniteNonNegative(initialDelay, "initialDelay")
 
         require(maxDelay >= Duration.ZERO) {
             "maxDelay must not be negative."
