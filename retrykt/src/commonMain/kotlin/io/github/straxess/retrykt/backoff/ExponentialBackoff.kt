@@ -1,6 +1,7 @@
 package io.github.straxess.retrykt.backoff
 
 import io.github.straxess.retrykt.internal.requireFiniteNonNegative
+import kotlin.math.log
 import kotlin.math.pow
 import kotlin.time.Duration
 
@@ -34,10 +35,38 @@ public class ExponentialBackoff(
     }
 
     override fun nextDelay(context: BackoffContext): Duration {
-        val delay = initialDelay * multiplier.pow(context.attempt - 1)
+        val attempt = context.attempt
 
-        val cappedDelay = delay.coerceAtMost(maxDelay)
+        if (attempt <= 1) {
+            return initialDelay
+        }
 
-        return cappedDelay
+        if (initialDelay == Duration.ZERO) {
+            return Duration.ZERO
+        }
+
+        if (initialDelay == maxDelay) {
+            return maxDelay
+        }
+
+        if (maxDelay.isInfinite()) {
+            // No upper bound.
+            val power = multiplier.pow(attempt - 1)
+
+            if (power.isInfinite()) {
+                return Duration.INFINITE
+            }
+
+            return initialDelay * power
+        }
+
+        val exponent = attempt - 1
+        val maxExponent = log(maxDelay / initialDelay, multiplier)
+
+        if (exponent.toDouble() >= maxExponent) {
+            return maxDelay
+        }
+
+        return initialDelay * multiplier.pow(exponent)
     }
 }

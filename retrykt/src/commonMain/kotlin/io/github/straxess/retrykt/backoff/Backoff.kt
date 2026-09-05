@@ -5,7 +5,8 @@ import kotlin.time.Duration
 /**
  * Calculates the delay before the next retry.
  *
- * Return a finite, non-negative [Duration].
+ * [Duration.INFINITE] indicates that a finite delay cannot be calculated.
+ * RetryKt treats it as a request to stop the retry process.
  */
 public interface Backoff {
 

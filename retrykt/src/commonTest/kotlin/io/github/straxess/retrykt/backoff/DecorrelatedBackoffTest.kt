@@ -39,25 +39,25 @@ class DecorrelatedBackoffTest {
     }
 
     @Test
-    fun `caps delay at max delay`() {
+    fun `returns randomized delay`() {
         val initialDelay = 100.milliseconds
-        val lastAppliedDelay = 10.seconds
-        val maxDelay = 1.seconds
+        val lastAppliedDelay = 200.milliseconds
+        val maxDelay = 10.seconds
 
         val backoff = DecorrelatedBackoff(initialDelay = initialDelay, maxDelay = maxDelay)
 
-        repeat(100) {
-            val actual = backoff.nextDelay(
-                BackoffContext(attempt = 2, lastAppliedDelay = lastAppliedDelay),
-            )
-
-            assertTrue(actual >= initialDelay)
-            assertTrue(actual <= maxDelay)
+        val delays = buildSet {
+            repeat(100) {
+                val backoffContext = BackoffContext(attempt = 2, lastAppliedDelay = lastAppliedDelay)
+                add(backoff.nextDelay(backoffContext))
+            }
         }
+
+        assertTrue(delays.size > 1)
     }
 
     @Test
-    fun `returns initial delay when last applied delay is too small`() {
+    fun `returns initial delay when last applied delay is below initial delay`() {
         val initialDelay = 100.milliseconds
 
         val backoff = DecorrelatedBackoff(initialDelay = initialDelay, maxDelay = 10.seconds)
@@ -70,48 +70,72 @@ class DecorrelatedBackoffTest {
     }
 
     @Test
-    fun `returns randomized delay`() {
-        val initialDelay = 100.milliseconds
+    fun `returns initial delay when max delay equals initial delay`() {
+        val delay = 100.milliseconds
 
-        val backoff = DecorrelatedBackoff(initialDelay = initialDelay, maxDelay = 10.seconds)
+        val backoff = DecorrelatedBackoff(initialDelay = delay, maxDelay = delay)
 
-        var lastAppliedDelay: Duration? = null
-        val delays = buildSet {
-            repeat(100) {
-                val actual = backoff.nextDelay(
-                    BackoffContext(attempt = it + 1, lastAppliedDelay = lastAppliedDelay),
-                )
-                lastAppliedDelay = actual
-                add(actual)
-            }
+        repeat(100) {
+            val backoffContext = BackoffContext(attempt = 2, lastAppliedDelay = 200.milliseconds)
+            val actual = backoff.nextDelay(backoffContext)
+
+            assertEquals(delay, actual)
         }
-
-        assertTrue(delays.size > 1)
     }
 
     @Test
-    fun `returns initial delay when last applied delay is zero`() {
+    fun `returns randomized delay up to max delay when three times last applied delay exceeds max delay`() {
         val initialDelay = 100.milliseconds
+        val maxDelay = 500.milliseconds
+        val lastAppliedDelay = 200.milliseconds
 
-        val backoff = DecorrelatedBackoff(initialDelay = initialDelay, maxDelay = 10.seconds)
+        val backoff = DecorrelatedBackoff(initialDelay = initialDelay, maxDelay = maxDelay)
 
-        val actual = backoff.nextDelay(
-            BackoffContext(attempt = 2, lastAppliedDelay = Duration.ZERO),
-        )
+        repeat(100) {
+            val backoffContext = BackoffContext(attempt = 2, lastAppliedDelay = lastAppliedDelay)
+            val actual = backoff.nextDelay(backoffContext)
 
-        assertEquals(initialDelay, actual)
+            assertTrue(actual >= initialDelay)
+            assertTrue(actual <= maxDelay)
+        }
     }
 
     @Test
-    fun `accepts infinite max delay`() {
-        val backoff = DecorrelatedBackoff(initialDelay = 100.milliseconds, maxDelay = Duration.INFINITE)
+    fun `returns randomized delay up to three times last applied delay when max delay is infinite`() {
+        val initialDelay = 100.milliseconds
+        val lastAppliedDelay = 200.milliseconds
 
-        val actual = backoff.nextDelay(
-            BackoffContext(attempt = 2, lastAppliedDelay = 200.milliseconds),
+        val backoff = DecorrelatedBackoff(
+            initialDelay = initialDelay,
+            maxDelay = Duration.INFINITE,
         )
 
-        assertTrue(actual >= 100.milliseconds)
-        assertTrue(actual <= 600.milliseconds)
+        repeat(100) {
+            val backoffContext = BackoffContext(attempt = 2, lastAppliedDelay = lastAppliedDelay)
+            val actual = backoff.nextDelay(backoffContext)
+
+            assertTrue(actual >= initialDelay)
+            assertTrue(actual <= lastAppliedDelay * 3)
+        }
+    }
+
+    @Test
+    fun `does not overflow to infinite delay when three times last applied delay would be infinite`() {
+        val initialDelay = 100.milliseconds
+        val maxDelay = 1.seconds
+        val lastAppliedDelay = ((Long.MAX_VALUE / 2) - 1).milliseconds
+
+        assertTrue(lastAppliedDelay.isFinite())
+        assertTrue((lastAppliedDelay * 3).isInfinite())
+
+        val backoff = DecorrelatedBackoff(initialDelay = initialDelay, maxDelay = maxDelay)
+
+        val backoffContext = BackoffContext(attempt = 2, lastAppliedDelay = lastAppliedDelay)
+        val actual = backoff.nextDelay(backoffContext)
+
+        assertTrue(actual >= initialDelay)
+        assertTrue(actual <= maxDelay)
+        assertTrue(actual.isFinite())
     }
 
     @Test

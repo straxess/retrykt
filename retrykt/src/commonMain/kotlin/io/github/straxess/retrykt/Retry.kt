@@ -3,7 +3,6 @@ package io.github.straxess.retrykt
 import io.github.straxess.retrykt.backoff.Backoff
 import io.github.straxess.retrykt.backoff.BackoffContext
 import io.github.straxess.retrykt.backoff.NoBackoff
-import io.github.straxess.retrykt.internal.requireFiniteNonNegative
 import io.github.straxess.retrykt.internal.sleep
 import io.github.straxess.retrykt.jitter.Jitter
 import io.github.straxess.retrykt.jitter.NoJitter
@@ -79,11 +78,29 @@ public suspend fun <T> retry(
 
         val backoffContext = BackoffContext(attempt, lastAppliedDelay)
 
-        val rawDelay = backoff.nextDelay(backoffContext)
-        requireFiniteNonNegative(rawDelay, "backoff delay")
+        val backoffDelay = backoff.nextDelay(backoffContext)
+        if (backoffDelay == Duration.INFINITE) {
+            listener.onFailure(retryEvent)
+            throw RetryStoppedException(
+                reason = RetryStoppedReason.InfiniteDelay(),
+                lastOutcome = outcome,
+            )
+        }
+        check(backoffDelay >= Duration.ZERO) {
+            "backoff delay must not be negative."
+        }
 
-        val appliedDelay = jitter.apply(rawDelay)
-        requireFiniteNonNegative(appliedDelay, "jitter delay")
+        val appliedDelay = jitter.apply(backoffDelay)
+        if (appliedDelay == Duration.INFINITE) {
+            listener.onFailure(retryEvent)
+            throw RetryStoppedException(
+                reason = RetryStoppedReason.InfiniteDelay(),
+                lastOutcome = outcome,
+            )
+        }
+        check(appliedDelay >= Duration.ZERO) {
+            "jitter delay must not be negative."
+        }
 
         currentCoroutineContext().ensureActive()
         listener.onRetry(retryEvent)
@@ -160,11 +177,29 @@ public fun <T> retryBlocking(
 
         val backoffContext = BackoffContext(attempt, lastAppliedDelay)
 
-        val rawDelay = backoff.nextDelay(backoffContext)
-        requireFiniteNonNegative(rawDelay, "backoff delay")
+        val backoffDelay = backoff.nextDelay(backoffContext)
+        if (backoffDelay == Duration.INFINITE) {
+            listener.onFailure(retryEvent)
+            throw RetryStoppedException(
+                reason = RetryStoppedReason.InfiniteDelay(),
+                lastOutcome = outcome,
+            )
+        }
+        check(backoffDelay >= Duration.ZERO) {
+            "backoff delay must not be negative."
+        }
 
-        val appliedDelay = jitter.apply(rawDelay)
-        requireFiniteNonNegative(appliedDelay, "jitter delay")
+        val appliedDelay = jitter.apply(backoffDelay)
+        if (appliedDelay == Duration.INFINITE) {
+            listener.onFailure(retryEvent)
+            throw RetryStoppedException(
+                reason = RetryStoppedReason.InfiniteDelay(),
+                lastOutcome = outcome,
+            )
+        }
+        check(appliedDelay >= Duration.ZERO) {
+            "jitter delay must not be negative."
+        }
 
         listener.onRetry(retryEvent)
 

@@ -9,8 +9,8 @@ import kotlin.time.Duration
  *
  * This backoff already adds randomness, so it is usually paired with `NoJitter`.
  *
- * After the first attempt, the next delay is computed as:
- * `random(initialDelay, min(maxDelay, lastAppliedDelay * 3))`
+ * The first retry uses `initialDelay`. Subsequent retry delays are computed as:
+ * `random(initialDelay, min(maxDelay, lastAppliedDelay * 3))`.
  */
 public class DecorrelatedBackoff(
     public val initialDelay: Duration,
@@ -32,7 +32,12 @@ public class DecorrelatedBackoff(
     override fun nextDelay(context: BackoffContext): Duration {
         val lastActualDelay = context.lastAppliedDelay ?: return initialDelay
 
-        val upperBound = (lastActualDelay * 3).coerceAtMost(maxDelay)
+        val upperBound =
+            if (maxDelay.isFinite() && maxDelay / 3 < lastActualDelay) {
+                maxDelay
+            } else {
+                lastActualDelay * 3
+            }
 
         if (upperBound <= initialDelay) {
             return initialDelay

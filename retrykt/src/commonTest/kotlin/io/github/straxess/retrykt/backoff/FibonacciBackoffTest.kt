@@ -3,7 +3,10 @@ package io.github.straxess.retrykt.backoff
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 class FibonacciBackoffTest {
@@ -31,6 +34,34 @@ class FibonacciBackoffTest {
         assertEquals(10.seconds, backoff.nextDelay(BackoffContext(2, null)))
         assertEquals(15.seconds, backoff.nextDelay(BackoffContext(3, null)))
         assertEquals(15.seconds, backoff.nextDelay(BackoffContext(4, null)))
+    }
+
+    @Test
+    fun `does not overflow for max attempt`() {
+        val maxDelay = 1.hours
+
+        val backoff = FibonacciBackoff(initialDelay = 1.milliseconds, maxDelay = maxDelay)
+
+        val backoffContext = BackoffContext(attempt = Int.MAX_VALUE, lastAppliedDelay = null)
+        val actual = backoff.nextDelay(backoffContext)
+
+        assertEquals(maxDelay, actual)
+    }
+
+    @Test
+    fun `does not overflow to infinite delay`() {
+        val maxDelay = ((Long.MAX_VALUE / 2) - 1).milliseconds
+        assertTrue(maxDelay.isFinite())
+        assertTrue((maxDelay * 2).isInfinite())
+
+        val initialDelay = maxDelay - 1.milliseconds
+
+        val backoff = FibonacciBackoff(initialDelay = initialDelay, maxDelay = maxDelay)
+
+        val backoffContext = BackoffContext(attempt = 3, lastAppliedDelay = null)
+        val actual = backoff.nextDelay(backoffContext)
+
+        assertEquals(maxDelay, actual)
     }
 
     @Test

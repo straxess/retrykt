@@ -30,7 +30,7 @@ public class FibonacciBackoff(
         var delay = initialDelay
 
         repeat(context.attempt - 1) {
-            if (delay > maxDelay - prevDelay) {
+            if (delay >= maxDelay - prevDelay) {
                 return maxDelay
             }
 
@@ -39,8 +39,6 @@ public class FibonacciBackoff(
             prevDelay = intermediate
         }
 
-        val cappedDelay = delay.coerceAtMost(maxDelay)
-
-        return cappedDelay
+        return delay
     }
 }

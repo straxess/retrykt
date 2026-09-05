@@ -117,8 +117,8 @@ class RetryBlockingTest {
     }
 
     @Test
-    fun `rejects invalid custom delays`() {
-        assertFailsWith<IllegalArgumentException> {
+    fun `throws IllegalStateException if backoff returns negative delay`() {
+        assertFailsWith<IllegalStateException> {
             retryBlocking(
                 backoff = object : Backoff {
                     override fun nextDelay(context: BackoffContext) = (-1).milliseconds
@@ -127,9 +127,12 @@ class RetryBlockingTest {
                 error("task should not succeed")
             }
         }
+    }
 
-        assertFailsWith<IllegalArgumentException> {
-            retryBlocking(jitter = { Duration.INFINITE }) {
+    @Test
+    fun `throws IllegalStateException if jitter returns negative delay`() {
+        assertFailsWith<IllegalStateException> {
+            retryBlocking(jitter = { (-1).milliseconds }) {
                 error("task should not succeed")
             }
         }
@@ -537,5 +540,31 @@ class RetryBlockingTest {
         val prevOutcome = retryEvents[1].context.prevOutcome
         assertTrue(prevOutcome is AttemptOutcome.Returned)
         assertEquals("first", prevOutcome.value)
+    }
+
+    @Test
+    fun `throws RetryStoppedException with InfiniteDelay if backoff returns infinite delay`() {
+        val e = assertFailsWith<RetryStoppedException> {
+            retryBlocking(
+                backoff = object : Backoff {
+                    override fun nextDelay(context: BackoffContext) = Duration.INFINITE
+                },
+            ) {
+                error("task should not succeed")
+            }
+        }
+
+        assertTrue(e.reason is RetryStoppedReason.InfiniteDelay)
+    }
+
+    @Test
+    fun `throws RetryStoppedException with InfiniteDelay if jitter returns infinite delay`() {
+        val e = assertFailsWith<RetryStoppedException> {
+            retryBlocking(jitter = { Duration.INFINITE }) {
+                error("task should not succeed")
+            }
+        }
+
+        assertTrue(e.reason is RetryStoppedReason.InfiniteDelay)
     }
 }

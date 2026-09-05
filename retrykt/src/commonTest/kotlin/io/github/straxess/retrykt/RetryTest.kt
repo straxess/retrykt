@@ -138,8 +138,8 @@ class RetryTest {
     }
 
     @Test
-    fun `rejects invalid custom delays`() = runTest {
-        assertFailsWith<IllegalArgumentException> {
+    fun `throws IllegalStateException if backoff returns negative delay`() = runTest {
+        assertFailsWith<IllegalStateException> {
             retry(
                 backoff = object : Backoff {
                     override fun nextDelay(context: BackoffContext) = (-1).milliseconds
@@ -148,9 +148,12 @@ class RetryTest {
                 error("task should not succeed")
             }
         }
+    }
 
-        assertFailsWith<IllegalArgumentException> {
-            retry(jitter = { Duration.INFINITE }) {
+    @Test
+    fun `throws IllegalStateException if jitter returns negative delay`() = runTest {
+        assertFailsWith<IllegalStateException> {
+            retry(jitter = { (-1).milliseconds }) {
                 error("task should not succeed")
             }
         }
@@ -623,5 +626,31 @@ class RetryTest {
         val prevOutcome = retryEvents[1].context.prevOutcome
         assertTrue(prevOutcome is AttemptOutcome.Returned)
         assertEquals("first", prevOutcome.value)
+    }
+
+    @Test
+    fun `throws RetryStoppedException with InfiniteDelay if backoff returns infinite delay`() = runTest {
+        val e = assertFailsWith<RetryStoppedException> {
+            retry(
+                backoff = object : Backoff {
+                    override fun nextDelay(context: BackoffContext) = Duration.INFINITE
+                },
+            ) {
+                error("task should not succeed")
+            }
+        }
+
+        assertTrue(e.reason is RetryStoppedReason.InfiniteDelay)
+    }
+
+    @Test
+    fun `throws RetryStoppedException with InfiniteDelay if jitter returns infinite delay`() = runTest {
+        val e = assertFailsWith<RetryStoppedException> {
+            retry(jitter = { Duration.INFINITE }) {
+                error("task should not succeed")
+            }
+        }
+
+        assertTrue(e.reason is RetryStoppedReason.InfiniteDelay)
     }
 }
