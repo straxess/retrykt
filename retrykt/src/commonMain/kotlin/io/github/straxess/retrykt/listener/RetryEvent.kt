@@ -1,4 +1,7 @@
-package io.github.straxess.retrykt
+package io.github.straxess.retrykt.listener
+
+import io.github.straxess.retrykt.AttemptOutcome
+import io.github.straxess.retrykt.RetryContext
 
 /**
  * Describes the result of a completed task attempt and its context.
