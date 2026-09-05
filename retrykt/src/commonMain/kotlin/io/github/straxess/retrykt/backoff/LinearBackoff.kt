@@ -20,10 +20,24 @@ public class LinearBackoff(
     }
 
     override fun nextDelay(context: BackoffContext): Duration {
-        val delay = increment * context.attempt
+        val attempt = context.attempt
 
-        val cappedDelay = delay.coerceAtMost(maxDelay)
+        if (increment == Duration.ZERO) {
+            return Duration.ZERO
+        }
 
-        return cappedDelay
+        if (increment == maxDelay) {
+            return maxDelay
+        }
+
+        if (!maxDelay.isFinite()) {
+            return increment * attempt
+        }
+
+        if (attempt >= maxDelay / increment) {
+            return maxDelay
+        }
+
+        return increment * attempt
     }
 }
