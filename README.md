@@ -8,10 +8,10 @@
 
 > A lightweight Kotlin Multiplatform retry library with coroutine and blocking APIs.
 
-RetryKt provides a retry model across Kotlin platforms with retry policies, configurable backoff strategies, jitter, and
-a minimal runtime footprint.
+RetryKt provides a small, composable retry API for KMP. It supports configurable retry policies, backoff strategies,
+jitter, lifecycle listeners, and both suspending and blocking execution.
 
-RetryKt intentionally focuses on reliable retries instead of providing a complete resilience framework.
+RetryKt focuses on reliable retry behavior without trying to become a general-purpose resilience framework.
 
 ```kotlin
 val user = retry {
@@ -38,10 +38,11 @@ val response = retry(
 - [Retry Policies](#retry-policies)
 - [Backoff](#backoff)
 - [Jitter](#jitter)
-- [Design Goals](#design-goals)
+- [Observing Retries](#observing-retries)
 - [Coroutine API](#coroutine-api)
 - [Blocking API](#blocking-api)
 - [Coroutine Cancellation](#coroutine-cancellation)
+- [Design Goals](#design-goals)
 - [FAQ](#faq)
 - [Supported Platforms](#supported-platforms)
 - [License](#license)
@@ -50,20 +51,23 @@ val response = retry(
 
 ## Why RetryKt?
 
-`repeat(3)` is fine until retries need real rules. Real-world retry logic often needs to:
+A simple `repeat(3)` loop is enough for trivial cases. Real-world retry logic often needs more:
 
 - Retry only specific exceptions or returned values
-- Use configurable backoff strategies
+- Configure how delays grow between attempts
 - Add jitter to avoid synchronized retries
 - Respect coroutine cancellation
 - Observe retry attempts and outcomes
-- Support both suspending and blocking code
-- Work consistently across Kotlin Multiplatform
+- Support both suspending and blocking operations
+- Run consistently across Kotlin Multiplatform targets
 
-RetryKt provides these capabilities in a small, focused library without framework-specific dependencies.
+RetryKt separates these concerns into small, composable building blocks:
 
-Instead of writing ad-hoc retry loops, you define **what** to retry (`RetryOn`)
-and **how** to schedule retries (`Backoff` + `Jitter`), with optional observability through `RetryListener`.
+- **`RetryOn`** — decides whether an outcome should be retried
+- **`Backoff`** — calculates the base delay
+- **`Jitter`** — modifies the backoff delay
+- **`RetryListener`** — observes the retry lifecycle
+- **`RetryContext`** — provides information about the current attempt
 
 ---
 
@@ -92,13 +96,13 @@ dependencies {
 
 ## Compatibility
 
-These are the Kotlin and Coroutines versions used to test this release line.
+RetryKt is built and tested with the following Kotlin and Coroutines versions:
 
-| RetryKt Version | Kotlin Version | Kotlin Coroutines Version |
-|-----------------|----------------|---------------------------|
-| 0.4.x           | 2.3.x          | 1.10.x                    |
+| RetryKt | Kotlin | Kotlin Coroutines |
+|---------|--------|-------------------|
+| 0.4.x   | 2.3.x  | 1.10.x            |
 
-### JVM Compatibility
+### JVM
 
 The JVM artifact targets Java 11. It is built with JDK 17.
 
@@ -106,16 +110,45 @@ The JVM artifact targets Java 11. It is built with JDK 17.
 
 ## Quick Start
 
-> **Rule of thumb**
->
-> Use `retry()` in suspend code.  
-> Use `retryBlocking()` everywhere else.
-
 ### Retry an operation
+
+Use `retry()` for suspending operations:
 
 ```kotlin
 val user = retry {
     api.getUser()
+}
+```
+
+By default, thrown exceptions are retried and returned values are accepted.
+
+### Limit the number of attempts
+
+```kotlin
+val user = retry(maxAttempts = 5) {
+    api.getUser()
+}
+```
+
+### Retry specific exceptions
+
+```kotlin
+val user = retry(
+    retryOn = RetryOn.thrown { it is IOException },
+) {
+    api.getUser()
+}
+```
+
+### Retry returned values
+
+An operation does not have to throw an exception to be retried:
+
+```kotlin
+val response = retry(
+    retryOn = RetryOn.returned { it.status == 503 },
+) {
+    api.getResponse()
 }
 ```
 
@@ -136,7 +169,7 @@ val user = retry(
 
 ### Add jitter
 
-Jitter is a separate step after backoff, so you can mix and match both.
+Backoff and jitter are independent and can be combined:
 
 ```kotlin
 val response = retry(
@@ -150,31 +183,9 @@ val response = retry(
 }
 ```
 
-### Retry only specific exceptions
-
-```kotlin
-val user = retry(
-    retryOn = RetryOn.thrown { it is IOException },
-) {
-    api.getUser()
-}
-```
-
-### Retry returned values
-
-Sometimes an operation succeeds but returns a value that should be retried.
-
-```kotlin
-val response = retry(
-    retryOn = RetryOn.returned { it.status == 503 },
-) {
-    api.getResponse()
-}
-```
-
 ### Access the retry context
 
-Each attempt gets a `RetryContext` with info about the current attempt and the outcome of the previous attempt.
+Each attempt receives a `RetryContext`:
 
 ```kotlin
 retry(maxAttempts = 3) { ctx ->
@@ -188,69 +199,55 @@ retry(maxAttempts = 3) { ctx ->
 }
 ```
 
-### Observe the retry lifecycle
-
-Use `RetryListener` to observe retry attempts and their outcomes.
-
-```kotlin
-retry(
-    listener = RetryListener(
-        onRetry = { event ->
-            log.info("Retrying after attempt ${event.context.attempt}.")
-        },
-        onSuccess = { event ->
-            log.info("Succeeded on attempt ${event.context.attempt}.")
-        },
-        onFailure = { event ->
-            log.info("Failed on attempt ${event.context.attempt}.")
-        },
-    ),
-) {
-    fetchData()
-}
-```
-
-Each `RetryEvent` contains the outcome of the completed attempt and the`RetryContext` in which it was executed.
+`RetryContext` describes the current attempt and the outcome of the previous attempt.
 
 ---
 
 ## Retry Policies
 
-`RetryOn` decides whether the last result deserves another attempt. It can inspect both thrown exceptions and returned
-values.
+`RetryOn` determines whether the outcome of an attempt should be retried.
 
-By default, RetryKt retries exceptions and accepts returned values. Kotlin `Error` subclasses pass through. Only retry
-an `Error` with an explicit `RetryOn` policy, and only if you really mean it.
+It can inspect:
+
+- thrown exceptions
+- returned values
+- the complete `AttemptOutcome`
 
 ### Retry thrown exceptions
 
-For example, retry only network failures:
+Retry only selected exceptions:
 
 ```kotlin
-retry(retryOn = RetryOn.thrown { it is IOException || it is TimeoutException }) {
+retry(
+    retryOn = RetryOn.thrown {
+        it is IOException || it is TimeoutException
+    },
+) {
     request()
 }
 ```
 
 ### Retry returned values
 
-Some APIs report temporary failures through return values rather than exceptions.
+Some APIs report temporary failures through return values:
 
 ```kotlin
-retry(retryOn = RetryOn.returned { it.status == 503 }) {
+retry(
+    retryOn = RetryOn.returned { it.status == 503 },
+) {
     api.getResponse()
 }
 ```
 
-### Retry based on the attempt outcome
+### Retry based on the outcome
 
-Need both the value and the exception? Use `outcome`:
+Use `RetryOn.outcome` when the policy needs to handle both returned values and exceptions:
 
 ```kotlin
 retry(
     retryOn = RetryOn.outcome { outcome ->
         when (outcome) {
-            is AttemptOutcome.Returned -> outcome.value.shouldRetry()
+            is AttemptOutcome.Returned -> outcome.value == null
             is AttemptOutcome.Thrown -> outcome.throwable is IOException
         }
     },
@@ -261,11 +258,17 @@ retry(
 
 `AttemptOutcome` is the single type used for both cases.
 
+### Errors
+
+Kotlin `Error` subclasses are not retried by the default policy.
+
+If you explicitly configure a `RetryOn` policy that matches an `Error`, it can be retried.
+
 ---
 
 ## Backoff
 
-A backoff calculates the base delay before the next attempt.
+A backoff calculates the **base delay** before the next attempt.
 
 Backoff and jitter are separate concepts:
 
@@ -276,7 +279,7 @@ raw delay
    ↓
 Jitter
    ↓
-actual delay (applied delay)
+applied delay
    ↓
 wait
 ```
@@ -293,16 +296,16 @@ Built-in backoff implementations include the following examples:
 | `FibonacciBackoff`   |        1s |        1s |        2s |        3s |        5s |        8s |
 | `ExponentialBackoff` |        1s |        2s |        4s |        8s |       16s |       32s |
 
-`DecorrelatedBackoff` is randomized based on the previous actual delay.
+`DecorrelatedBackoff` is randomized and therefore is not represented by a fixed sequence.
 
 Choose the strategy that matches your workload:
 
 | Strategy              | Typical use case                                                        |
 |-----------------------|-------------------------------------------------------------------------|
-| `NoBackoff`           | Tests, CPU-bound operations                                             |
+| `NoBackoff`           | Tests and immediate retries                                             |
 | `ConstantBackoff`     | Fixed polling intervals                                                 |
 | `LinearBackoff`       | Gradually increasing retry intervals                                    |
-| `FibonacciBackoff`    | Moderate growth between linear and exponential backoff                  |
+| `FibonacciBackoff`    | Moderate growth between linear and exponential                          |
 | `ExponentialBackoff`  | Network requests, cloud APIs, distributed systems                       |
 | `DecorrelatedBackoff` | Distributed systems where randomized, decorrelated delays are desirable |
 
@@ -318,8 +321,8 @@ ExponentialBackoff(
 
 ### Decorrelated backoff
 
-`DecorrelatedBackoff` is the AWS-style decorrelated-jitter algorithm packaged as a backoff. It uses the actual delay
-from the previous retry when calculating the next one.
+`DecorrelatedBackoff` implements the AWS-style decorrelated-jitter algorithm. It uses the applied delay from the
+previous retry when calculating the next delay.
 
 ```kotlin
 DecorrelatedBackoff(
@@ -328,11 +331,20 @@ DecorrelatedBackoff(
 )
 ```
 
-It already randomizes delays, so pair it with `NoJitter` unless you deliberately want more randomness.
+Because it already introduces randomness, it normally does not need an additional jitter strategy:
+
+```kotlin
+retry(
+    backoff = DecorrelatedBackoff(100.milliseconds),
+    jitter = NoJitter,
+) {
+    request()
+}
+```
 
 ### Custom backoff
 
-Custom backoffs receive the current attempt and the actual delay used before it.
+Implement `Backoff` to provide your own strategy:
 
 ```kotlin
 class MyBackoff : Backoff {
@@ -356,16 +368,14 @@ retry(backoff = MyBackoff()) {
 
 ## Jitter
 
-Jitter changes the delay from backoff. It helps keep many clients from retrying at the same time.
+Jitter modifies the delay produced by the backoff strategy.
 
-RetryKt applies jitter after backoff:
+It is useful when many clients may otherwise retry at the same time:
 
 ```text
 rawDelay = backoff.nextDelay(...)
 appliedDelay = jitter.apply(rawDelay)
 ```
-
-### Built-in jitter strategies
 
 Built-in jitter strategies:
 
@@ -378,7 +388,11 @@ Built-in jitter strategies:
 
 ### Full Jitter
 
-Full Jitter picks a random delay between zero and the backoff delay.
+Full Jitter selects a random delay between zero and the raw backoff delay:
+
+```text
+appliedDelay = random(0, rawDelay)
+```
 
 ```kotlin
 retry(
@@ -392,19 +406,12 @@ retry(
 }
 ```
 
-Conceptually:
-
-```text
-appliedDelay = random(0, rawDelay)
-```
-
 ### Equal Jitter
 
-Equal Jitter keeps half the delay, then randomizes the rest.
+Equal Jitter keeps half of the raw delay and randomizes the remaining half:
 
 ```text
-temp = rawDelay
-appliedDelay = temp / 2 + random(0, temp / 2)
+appliedDelay = rawDelay / 2 + random(0, rawDelay / 2)
 ```
 
 ```kotlin
@@ -418,7 +425,7 @@ retry(
 
 ### Additive Jitter
 
-`AdditiveJitter` adds an independent random delay.
+`AdditiveJitter` adds an independent random delay:
 
 ```kotlin
 retry(
@@ -429,17 +436,13 @@ retry(
 }
 ```
 
-For a raw delay of `200ms`, the resulting delay is in the range:
+For a raw delay of `200ms`, the resulting delay is in `[200ms, 300ms)`
 
-```text
-[200ms, 300ms)
-```
-
-Unlike `FullJitter` and `EqualJitter`, its random part does not depend on the backoff delay.
+Unlike `FullJitter` and `EqualJitter`, the random component is independent of the backoff delay.
 
 ### Custom jitter
 
-`Jitter` is a functional interface, so custom strategies stay small.
+`Jitter` is a functional interface, so custom strategies can remain small:
 
 ```kotlin
 class MyJitter : Jitter {
@@ -450,7 +453,7 @@ class MyJitter : Jitter {
 }
 ```
 
-Or using a lambda:
+Or use a lambda:
 
 ```kotlin
 retry(jitter = { rawDelay ->  /* ... */ }) {
@@ -460,39 +463,46 @@ retry(jitter = { rawDelay ->  /* ... */ }) {
 
 ---
 
-## Design Goals
+## Observing Retries
 
-RetryKt does retries and leaves the rest to other tools.
+Use `RetryListener` to observe the retry lifecycle without changing retry behavior.
 
-### Goals
+```kotlin
+retry(
+    listener = RetryListener(
+        onRetry = { event, decision ->
+            log.info("Retrying after attempt ${event.context.attempt}, waiting ${decision.nextDelay}.")
+        },
+        onSuccess = { event ->
+            log.info("Succeeded on attempt ${event.context.attempt}.")
+        },
+        onFailure = { event ->
+            log.info("Failed on attempt ${event.context.attempt}.")
+        },
+    ),
+) {
+    fetchData()
+}
+```
 
-- Kotlin-first API
-- Kotlin Multiplatform support
-- Consistent coroutine and blocking APIs
-- No framework-specific runtime dependencies
-- Explicit retry decisions
-- Independent backoff and jitter strategies
-- Small, composable building blocks
-- Predictable behavior
+`RetryEvent` describes a completed attempt:
 
-### Non-goals
+- `outcome` — whether the attempt returned a value or threw an exception
+- `context` — the `RetryContext` for that attempt
 
-It does not try to provide:
+`RetryDecision` describes the decision for the next retry attempt.
 
-- Circuit breakers
-- Rate limiting
-- Bulkheads
-- Service discovery
-- Metrics collection
-- General-purpose scheduling
+Currently, it exposes the delay that will be applied: `decision.nextDelay`
 
-Use dedicated libraries when you need these capabilities.
+The `onRetry` callback receives both objects.
+
+`onRetry` is called after the retry decision has been made and before the delay is applied.
 
 ---
 
 ## Coroutine API
 
-Use `retry()` from suspend code.
+Use `retry()` from `suspend` code.
 
 ### Ktor Client
 
@@ -525,10 +535,16 @@ class UserRepository(
 
 ## Blocking API
 
-Use `retryBlocking()` when the calling code is synchronous.
+Use `retryBlocking()` when the calling code is synchronous:
 
-On JavaScript and WebAssembly, `retryBlocking()` only supports zero-delay retries. A positive delay throws
-`UnsupportedOperationException`: those platforms cannot block the current thread.
+```kotlin
+val user = retryBlocking {
+    api.loadUser()
+}
+```
+
+On JavaScript and WebAssembly, `retryBlocking()` supports only zero-delay retries. A positive delay throws
+`UnsupportedOperationException` because these platforms cannot block the current thread.
 
 ### JVM CacheLoader
 
@@ -541,17 +557,17 @@ val cache = Caffeine.newBuilder()
     }
 ```
 
-### Kotlin/Native C callback
+### Kotlin/Native C callbacks
 
-Kotlin/Native callbacks often come from C libraries. Those callbacks cannot be `suspend`, so `retryBlocking()` fits well
-here.
+Kotlin/Native callbacks from C APIs cannot be `suspend`, making `retryBlocking()` useful for synchronous native
+integration.
 
-Common examples:
+Typical examples include:
 
 - libcurl
 - POSIX APIs
-- Platform SDKs
-- Other native C libraries
+- platform SDKs
+- other native C libraries
 
 ```kotlin
 // Simplified example
@@ -585,7 +601,7 @@ class SyncWorker(
 }
 ```
 
-Typical use cases:
+Typical blocking use cases:
 
 | Platform      | Examples                                   |
 |---------------|--------------------------------------------|
@@ -600,9 +616,38 @@ Typical use cases:
 
 `CancellationException` is never retried.
 
-When a coroutine is canceled, RetryKt stops right away: it does not call the retry policy or schedule another attempt.
+When a coroutine is canceled, RetryKt stops without invoking the retry policy or scheduling another attempt.
 
-`retryBlocking()` follows the same rule when it sees a `CancellationException`.
+`retryBlocking()` follows the same rule when it encounters a `CancellationException`.
+
+---
+
+## Design Goals
+
+RetryKt focuses on retry behavior and leaves other resilience concerns to dedicated tools.
+
+### Goals
+
+- Kotlin-first API
+- Kotlin Multiplatform support
+- Consistent coroutine and blocking APIs
+- No framework-specific runtime dependencies
+- Explicit retry policies
+- Independent backoff and jitter strategies
+- Small, composable building blocks
+- Predictable behavior
+
+### Non-goals
+
+RetryKt does not provide:
+
+- Circuit breakers
+- Rate limiting
+- Bulkheads
+- Metrics collection
+- General-purpose scheduling
+
+Use dedicated libraries when you need these capabilities.
 
 ---
 
@@ -610,26 +655,34 @@ When a coroutine is canceled, RetryKt stops right away: it does not call the ret
 
 ### Why are there both `retry()` and `retryBlocking()`?
 
-Kotlin has suspend and blocking execution models. RetryKt gives each one its own API but keeps the retry rules the same.
-
----
+Kotlin has suspending and blocking execution models. RetryKt provides a dedicated API for each while keeping retry
+policies, backoff, jitter, and lifecycle behavior consistent.
 
 ### Can I retry successful results?
 
 Yes. Use `RetryOn.returned` or `RetryOn.outcome`.
 
----
+### Can I retry specific exceptions?
+
+Yes. Use `RetryOn.thrown`:
+
+```kotlin
+retry(
+    retryOn = RetryOn.thrown { it is IOException },
+) {
+    request()
+}
+```
 
 ### Can I implement my own backoff strategy?
 
-Yes. Implement `Backoff` and pass it to `retry()` or `retryBlocking()`. `BackoffContext` gives you the attempt number
-and the actual delay from the previous retry.
+Yes. Implement `Backoff` and pass it to `retry()` or `retryBlocking()`.
 
----
+`BackoffContext` provides the attempt number and the applied delay used before the current retry.
 
 ### Can I implement my own jitter?
 
-Yes. Implement `Jitter` and pass it independently of backoff.
+Yes. Implement `Jitter` and use it independently of the backoff strategy:
 
 ```kotlin
 val jitter = Jitter { rawDelay ->
@@ -637,11 +690,9 @@ val jitter = Jitter { rawDelay ->
 }
 ```
 
----
-
 ### What is the difference between backoff and jitter?
 
-Backoff chooses the base delay. Jitter changes that delay, usually with randomness.
+Backoff chooses the base delay. Jitter modifies that delay, typically by introducing randomness.
 
 For example:
 
@@ -655,27 +706,18 @@ FullJitter
 random(0, 100)ms → random(0, 200)ms → random(0, 400)ms
 ```
 
-They are separate so you can combine them freely.
-
----
+They are separate so you can combine different backoff and jitter strategies.
 
 ### Why does `DecorrelatedBackoff` already contain randomness?
 
-`DecorrelatedBackoff` is the AWS decorrelated-jitter algorithm. Its next delay depends on the actual previous delay and
-already includes randomness, so it normally uses `NoJitter`.
+`DecorrelatedBackoff` implements the AWS-style decorrelated-jitter algorithm. Its next delay depends on the applied
+previous delay and includes randomness, so it normally does not need an additional jitter strategy.
 
----
+### Does RetryKt work with Kotlin Multiplatform?
 
-### Does RetryKt work on Kotlin Multiplatform?
+Yes. RetryKt supports JVM, Android, Kotlin/Native, JavaScript, and WebAssembly targets.
 
-Yes. See [Supported Platforms](#supported-platforms).
-
----
-
-### Why not use `Flow.retryWhen()`?
-
-`Flow.retryWhen()` is for Flows only. RetryKt works with any suspend or blocking operation and lets you configure
-policies, backoff, jitter, and callbacks.
+See [Supported Platforms](#supported-platforms).
 
 ---
 
