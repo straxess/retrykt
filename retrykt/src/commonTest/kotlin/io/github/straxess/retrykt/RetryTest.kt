@@ -140,6 +140,49 @@ class RetryTest {
         assertFalse(invoked)
     }
 
+    @Test
+    fun `cancellation after task returns prevents retry collaborators and listeners`() = runTest {
+        val job = Job()
+        var retryOnCalled = false
+        var backoffCalled = false
+        var jitterCalled = false
+        var listenerCalled = false
+
+        assertFailsWith<CancellationException> {
+            withContext(job) {
+                retry(
+                    retryOn = RetryOn.outcome<String> {
+                        retryOnCalled = true
+                        true
+                    },
+                    backoff = object : Backoff {
+                        override fun nextDelay(context: BackoffContext): Duration {
+                            backoffCalled = true
+                            return Duration.ZERO
+                        }
+                    },
+                    jitter = {
+                        jitterCalled = true
+                        it
+                    },
+                    listener = RetryListener(
+                        onRetry = { _, _ -> listenerCalled = true },
+                        onSuccess = { listenerCalled = true },
+                        onFailure = { listenerCalled = true },
+                    ),
+                ) {
+                    job.cancel()
+                    "result"
+                }
+            }
+        }
+
+        assertFalse(retryOnCalled)
+        assertFalse(backoffCalled)
+        assertFalse(jitterCalled)
+        assertFalse(listenerCalled)
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun `cancellation during delay prevents the next attempt and terminal callbacks`() = runTest {

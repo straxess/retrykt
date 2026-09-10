@@ -60,6 +60,8 @@ public suspend fun <T> retry(
             AttemptOutcome.Thrown(t)
         }
 
+        currentCoroutineContext().ensureActive()
+
         val retryEvent = RetryEvent(outcome, retryContext)
 
         if (!retryOn.shouldRetry(outcome)) {
