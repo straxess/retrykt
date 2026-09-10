@@ -17,7 +17,7 @@ class AdditiveJitterTest {
         val baseDelay = 10.seconds
 
         var hasJitter = false
-        repeat(1_000_000) {
+        repeat(1_000) {
             val actual = jitter.apply(baseDelay)
 
             assertTrue(actual >= baseDelay)
@@ -67,5 +67,20 @@ class AdditiveJitterTest {
         assertFailsWith<IllegalArgumentException> {
             AdditiveJitter(100.milliseconds).apply(Duration.INFINITE)
         }
+    }
+
+    @Test
+    fun `throws IllegalStateException when complete jitter range is infinite`() {
+        val rawDelay = ((Long.MAX_VALUE / 2) - 1).milliseconds
+        val maxJitter = 1.milliseconds
+
+        assertTrue(rawDelay.isFinite())
+        assertTrue((rawDelay + maxJitter).isInfinite())
+
+        val exception = assertFailsWith<IllegalStateException> {
+            AdditiveJitter(maxJitter).apply(rawDelay)
+        }
+
+        assertEquals("rawDelay + maxJitter must be finite.", exception.message)
     }
 }

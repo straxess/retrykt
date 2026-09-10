@@ -9,10 +9,15 @@ import kotlin.time.Duration
  *
  * Unlike [FullJitter] and [EqualJitter], this extra delay does not depend on the backoff delay.
  * The upper bound is reachable because [Duration] arithmetic rounds to representable values.
+ * The complete range must be finite;
+ * it is rejected instead of being truncated when `rawDelay + maxJitter` overflows to [Duration.INFINITE].
+ *
+ * @throws IllegalStateException if `rawDelay + maxJitter` is infinite.
  */
 public class AdditiveJitter(
     public val maxJitter: Duration,
 ) : Jitter {
+
     init {
         requireFiniteNonNegative(maxJitter, "maxJitter")
     }
@@ -25,6 +30,10 @@ public class AdditiveJitter(
         }
 
         val upperBound = rawDelay + maxJitter
+
+        check(upperBound.isFinite()) {
+            "rawDelay + maxJitter must be finite."
+        }
 
         return rawDelay + (upperBound - rawDelay) * Random.nextDouble()
     }

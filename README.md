@@ -468,6 +468,10 @@ reachable even though `Random.nextDouble()` itself excludes `1.0`.
 
 Unlike `FullJitter` and `EqualJitter`, the random component is independent of the backoff delay.
 
+`rawDelay + maxJitter` must be finite. If the complete requested range would overflow to `Duration.INFINITE`,
+`AdditiveJitter` throws `IllegalStateException` instead of silently reducing `maxJitter` or returning a truncated range.
+Such durations are generally a configuration error rather than a practical retry interval.
+
 ### Custom jitter
 
 `Jitter` is a functional interface, so custom strategies can remain small:
