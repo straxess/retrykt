@@ -13,8 +13,18 @@ import kotlin.time.Duration.Companion.seconds
 class FibonacciBackoffTest {
 
     @Test
-    fun `returns zero when initial delay is zero`() {
+    fun `returns zero when initial and max delays are zero`() {
         val backoff = FibonacciBackoff(initialDelay = Duration.ZERO, maxDelay = Duration.ZERO)
+        val backoffContext = BackoffContext(attempt = Int.MAX_VALUE, prevAppliedDelay = null)
+
+        val actual = backoff.nextDelay(backoffContext)
+
+        assertEquals(Duration.ZERO, actual)
+    }
+
+    @Test
+    fun `returns zero without iterating when initial delay is zero and max delay is positive`() {
+        val backoff = FibonacciBackoff(initialDelay = Duration.ZERO, maxDelay = 1.days)
         val backoffContext = BackoffContext(attempt = Int.MAX_VALUE, prevAppliedDelay = null)
 
         val actual = backoff.nextDelay(backoffContext)

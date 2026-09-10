@@ -312,8 +312,8 @@ The growing built-in strategies (`LinearBackoff`, `FibonacciBackoff`, `Exponenti
 0 <= initialDelay <= maxDelay < INFINITE
 ```
 
-The `0 / 0` configuration is valid and produces zero delay. `ConstantBackoff` instead validates its single `delay`
-as finite and non-negative.
+A zero `increment` or `initialDelay` produces zero delay regardless of the configured finite `maxDelay`; therefore, the
+`0 / 0` configuration is also valid. `ConstantBackoff` instead validates its single `delay` as finite and non-negative.
 
 Choose the strategy that matches your workload:
 

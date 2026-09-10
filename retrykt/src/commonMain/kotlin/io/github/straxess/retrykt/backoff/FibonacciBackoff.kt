@@ -7,6 +7,7 @@ import kotlin.time.Duration
  * Increases delays according to the Fibonacci sequence.
  *
  * The first two delays are [initialDelay], followed by the sum of the two previous delays, capped at [maxDelay].
+ * When [initialDelay] is zero, every delay is zero regardless of [maxDelay].
  * Requires `0 <= initialDelay <= maxDelay < Duration.INFINITE`.
  */
 public class FibonacciBackoff(
@@ -24,6 +25,10 @@ public class FibonacciBackoff(
     }
 
     override fun nextDelay(context: BackoffContext): Duration {
+        if (initialDelay == Duration.ZERO) {
+            return Duration.ZERO
+        }
+
         var prevDelay = Duration.ZERO
         var delay = initialDelay
 
