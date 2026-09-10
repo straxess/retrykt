@@ -9,6 +9,8 @@ import kotlin.time.Duration
  * The first two delays are [initialDelay], followed by the sum of the two previous delays, capped at [maxDelay].
  * When [initialDelay] is zero, every delay is zero regardless of [maxDelay].
  * Requires `0 <= initialDelay <= maxDelay < Duration.INFINITE`.
+ *
+ * @throws IllegalArgumentException if [initialDelay] or [maxDelay] violates the required bounds.
  */
 public class FibonacciBackoff(
     public val initialDelay: Duration,

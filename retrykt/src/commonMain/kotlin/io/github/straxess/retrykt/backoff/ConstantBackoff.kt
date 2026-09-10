@@ -5,6 +5,8 @@ import kotlin.time.Duration
 
 /**
  * Uses the same [delay] before every retry.
+ *
+ * @throws IllegalArgumentException if [delay] is negative or infinite.
  */
 public class ConstantBackoff(
     public val delay: Duration,

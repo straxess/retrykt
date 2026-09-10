@@ -19,11 +19,9 @@ val user = retry {
 }
 
 val response = retry(
+    maxAttempts = 5,
     retryOn = RetryOn.thrown { it is IOException },
-    backoff = ExponentialBackoff(
-        initialDelay = 200.milliseconds,
-        maxDelay = 10.seconds,
-    ),
+    backoff = ExponentialBackoff(initialDelay = 200.milliseconds, maxDelay = 10.seconds),
     jitter = FullJitter,
 ) {
     api.removeUser(user)
@@ -48,6 +46,7 @@ val response = retry(
 - [Design Goals](#design-goals)
 - [FAQ](#faq)
 - [Supported Platforms](#supported-platforms)
+- [Development](#development)
 - [License](#license)
 
 ---
@@ -125,6 +124,8 @@ val user = retry {
 ```
 
 By default, thrown exceptions are retried and returned values are accepted.
+`maxAttempts` defaults to `Int.MAX_VALUE`, so applications should normally configure a finite limit for operations that
+can keep failing.
 
 ### Limit the number of attempts
 
@@ -135,6 +136,14 @@ val user = retry(maxAttempts = 5) {
 ```
 
 `maxAttempts` is the total number of task invocations, including the initial attempt. It must be greater than zero.
+
+If the final attempt is failed, RetryKt throws `RetryStoppedException`:
+
+- `reason` is `RetryStoppedReason.MaxAttemptsReached(maxAttempts)`
+- `lastOutcome` contains the returned value or exception from the final attempt
+- when `lastOutcome` is `AttemptOutcome.Thrown`, its exception is also exposed as `cause`
+
+A thrown outcome that does not match `retryOn` is propagated unchanged instead of being wrapped.
 
 ### Retry specific exceptions
 
@@ -162,7 +171,6 @@ val response = retry(
 
 ```kotlin
 val user = retry(
-    maxAttempts = 5,
     backoff = ExponentialBackoff(
         initialDelay = 100.milliseconds,
         multiplier = 2.0,
@@ -212,6 +220,8 @@ retry(maxAttempts = 3) { ctx ->
 ## Retry Policies
 
 `RetryOn` determines whether the outcome of an attempt should be retried.
+
+Exceptions thrown by a `RetryOn` predicate stop retry processing and propagate to the caller unchanged.
 
 It can inspect:
 
@@ -312,8 +322,11 @@ The growing built-in strategies (`LinearBackoff`, `FibonacciBackoff`, `Exponenti
 0 <= initialDelay <= maxDelay < INFINITE
 ```
 
-A zero `increment` or `initialDelay` produces zero delay regardless of the configured finite `maxDelay`; therefore, the
-`0 / 0` configuration is also valid. `ConstantBackoff` instead validates its single `delay` as finite and non-negative.
+For `LinearBackoff`, `FibonacciBackoff`, and `ExponentialBackoff`, a zero `increment` or `initialDelay` always produces
+zero delay regardless of the configured finite `maxDelay`.
+`DecorrelatedBackoff` also starts at zero, but a jitter that makes the applied delay positive can make its subsequent
+raw delays positive because it uses `prevAppliedDelay`. The `0 / 0` configuration is valid for every growing strategy.
+`ConstantBackoff` instead validates its single `delay` as finite and non-negative.
 
 Choose the strategy that matches your workload:
 
@@ -352,10 +365,7 @@ Because it already introduces randomness, it normally does not need an additiona
 
 ```kotlin
 retry(
-    backoff = DecorrelatedBackoff(
-        initialDelay = 100.milliseconds,
-        maxDelay = 10.seconds,
-    ),
+    backoff = DecorrelatedBackoff(initialDelay = 100.milliseconds, maxDelay = 10.seconds),
     jitter = NoJitter,
 ) {
     request()
@@ -423,10 +433,7 @@ appliedDelay = random(0, rawDelay)
 
 ```kotlin
 retry(
-    backoff = ExponentialBackoff(
-        initialDelay = 200.milliseconds,
-        maxDelay = 10.seconds,
-    ),
+    backoff = ExponentialBackoff(initialDelay = 200.milliseconds, maxDelay = 10.seconds),
     jitter = FullJitter,
 ) {
     request()
@@ -582,8 +589,8 @@ val user = retryBlocking {
 }
 ```
 
-On JavaScript and WebAssembly, `retryBlocking()` supports only zero-delay retries. A positive delay throws
-`UnsupportedOperationException` because these platforms cannot block the current thread.
+On JavaScript and WebAssembly, including Node.js, `retryBlocking()` supports only zero-delay retries. A positive delay
+throws `UnsupportedOperationException` because these platforms cannot block the current thread.
 
 ### JVM CacheLoader
 
@@ -764,6 +771,8 @@ See [Supported Platforms](#supported-platforms).
 
 RetryKt currently supports:
 
+The Android target has a minimum SDK level of 24.
+
 | Platform                          | Supported |
 |-----------------------------------|-----------|
 | JVM                               | ✅        |
@@ -783,6 +792,28 @@ RetryKt currently supports:
 | Linux (ARM64)                     | ✅        |
 | JavaScript                        | ✅        |
 | WebAssembly                       | ✅        |
+
+The table lists targets produced by the Gradle build. JavaScript and WebAssembly tests run under Node.js; browser
+execution is not currently covered by CI. Host-compatible targets run tests in CI, while device-only and other
+cross-compiled Native targets are validated by compiling or linking their test binaries.
+
+---
+
+## Development
+
+Use the Gradle wrapper for all project tasks. The canonical final verification command is:
+
+```shell
+./gradlew build
+```
+
+The `build` lifecycle covers compilation, host-compatible tests, and code-style validation through `ktlintCheck`.
+
+The ktlint `intellij_idea` profile is intentional. Kotlin development for RetryKt is expected to use IntelliJ IDEA, and
+the profile matches its default Kotlin formatting behavior. Keeping the IDE and ktlint on the same profile prevents
+formatter conflicts and code-style churn.
+
+See [CONTRIBUTOR.md](CONTRIBUTOR.md) for the contributor workflow.
 
 ---
 

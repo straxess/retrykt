@@ -12,6 +12,8 @@ import kotlin.time.Duration
  * The first retry uses `initialDelay`. Subsequent retry delays are computed as:
  * `random(initialDelay, min(maxDelay, prevAppliedDelay * 3))`.
  * Requires `0 <= initialDelay <= maxDelay < Duration.INFINITE`.
+ *
+ * @throws IllegalArgumentException if [initialDelay] or [maxDelay] violates the required bounds.
  */
 public class DecorrelatedBackoff(
     public val initialDelay: Duration,

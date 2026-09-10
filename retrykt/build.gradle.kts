@@ -78,6 +78,7 @@ kotlin {
 }
 
 configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
+    // Keep ktlint aligned with IntelliJ IDEA's default Kotlin formatter to avoid formatter conflicts.
     additionalEditorconfig.set(
         mapOf(
             "ktlint_code_style" to "intellij_idea",
@@ -86,6 +87,7 @@ configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
     )
 }
 
+// The standard build lifecycle depends on check, so `./gradlew build` also verifies ktlint, compilation, and tests.
 tasks.named("check") {
     dependsOn("ktlintCheck")
 }

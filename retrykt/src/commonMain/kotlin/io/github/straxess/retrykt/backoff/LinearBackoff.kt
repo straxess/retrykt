@@ -7,6 +7,8 @@ import kotlin.time.Duration
  * Adds [increment] for each retry, up to the required finite [maxDelay].
  *
  * Requires `0 <= increment <= maxDelay < Duration.INFINITE`.
+ *
+ * @throws IllegalArgumentException if [increment] or [maxDelay] violates the required bounds.
  */
 public class LinearBackoff(
     public val increment: Duration,

@@ -12,7 +12,7 @@ import kotlin.time.Duration
  * The complete range must be finite;
  * it is rejected instead of being truncated when `rawDelay + maxJitter` overflows to [Duration.INFINITE].
  *
- * @throws IllegalStateException if `rawDelay + maxJitter` is infinite.
+ * @throws IllegalArgumentException if [maxJitter] is negative or infinite.
  */
 public class AdditiveJitter(
     public val maxJitter: Duration,

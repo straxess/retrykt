@@ -8,6 +8,8 @@ import kotlin.time.Duration
  * Multiplies [initialDelay] by [multiplier] after each attempt, up to the required finite [maxDelay].
  *
  * Requires `0 <= initialDelay <= maxDelay < Duration.INFINITE` and a finite [multiplier] of at least `1.0`.
+ *
+ * @throws IllegalArgumentException if [initialDelay], [maxDelay], or [multiplier] violates the required bounds.
  */
 public class ExponentialBackoff(
     public val initialDelay: Duration,
