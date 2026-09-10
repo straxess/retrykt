@@ -11,7 +11,12 @@ import kotlin.time.Duration
  */
 public object EqualJitter : Jitter {
 
-    override fun apply(rawDelay: Duration): Duration {
+    /**
+     * @throws IllegalArgumentException if [rawDelay] is negative or infinite.
+     */
+    override fun apply(rawDelay: Duration): Duration = apply(rawDelay, Random.Default)
+
+    internal fun apply(rawDelay: Duration, random: Random): Duration {
         requireFiniteNonNegative(rawDelay, "rawDelay")
 
         if (rawDelay == Duration.ZERO) {
@@ -20,6 +25,6 @@ public object EqualJitter : Jitter {
 
         val half = rawDelay / 2
 
-        return half + half * Random.nextDouble()
+        return half + half * random.nextDouble()
     }
 }

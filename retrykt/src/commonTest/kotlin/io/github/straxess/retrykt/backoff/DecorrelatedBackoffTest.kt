@@ -1,5 +1,6 @@
 package io.github.straxess.retrykt.backoff
 
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -48,11 +49,13 @@ class DecorrelatedBackoffTest {
         val prevAppliedDelay = 200.milliseconds
 
         val backoff = DecorrelatedBackoff(initialDelay = initialDelay, maxDelay = 10.seconds)
+        val random = Random(0)
 
         repeat(100) {
             val actual =
                 backoff.nextDelay(
                     BackoffContext(attempt = 2, prevAppliedDelay = prevAppliedDelay),
+                    random,
                 )
 
             assertTrue(actual >= initialDelay)
@@ -67,12 +70,13 @@ class DecorrelatedBackoffTest {
         val maxDelay = 10.seconds
 
         val backoff = DecorrelatedBackoff(initialDelay = initialDelay, maxDelay = maxDelay)
+        val random = Random(0)
 
         val delays =
             buildSet {
                 repeat(100) {
                     val backoffContext = BackoffContext(attempt = 2, prevAppliedDelay = prevAppliedDelay)
-                    add(backoff.nextDelay(backoffContext))
+                    add(backoff.nextDelay(backoffContext, random))
                 }
             }
 
@@ -114,10 +118,11 @@ class DecorrelatedBackoffTest {
         val prevAppliedDelay = 200.milliseconds
 
         val backoff = DecorrelatedBackoff(initialDelay = initialDelay, maxDelay = maxDelay)
+        val random = Random(0)
 
         repeat(100) {
             val backoffContext = BackoffContext(attempt = 2, prevAppliedDelay = prevAppliedDelay)
-            val actual = backoff.nextDelay(backoffContext)
+            val actual = backoff.nextDelay(backoffContext, random)
 
             assertTrue(actual >= initialDelay)
             assertTrue(actual <= maxDelay)
@@ -134,10 +139,11 @@ class DecorrelatedBackoffTest {
                 initialDelay = initialDelay,
                 maxDelay = 1.days,
             )
+        val random = Random(0)
 
         repeat(100) {
             val backoffContext = BackoffContext(attempt = 2, prevAppliedDelay = prevAppliedDelay)
-            val actual = backoff.nextDelay(backoffContext)
+            val actual = backoff.nextDelay(backoffContext, random)
 
             assertTrue(actual >= initialDelay)
             assertTrue(actual <= prevAppliedDelay * 3)
@@ -154,10 +160,14 @@ class DecorrelatedBackoffTest {
         assertTrue((prevAppliedDelay * 3).isInfinite())
 
         val backoff = DecorrelatedBackoff(initialDelay = initialDelay, maxDelay = maxDelay)
+        val random = Random(0)
 
         val delays =
             List(1_000) {
-                backoff.nextDelay(BackoffContext(attempt = 2, prevAppliedDelay = prevAppliedDelay))
+                backoff.nextDelay(
+                    BackoffContext(attempt = 2, prevAppliedDelay = prevAppliedDelay),
+                    random,
+                )
             }
 
         assertTrue(delays.all { it >= initialDelay })

@@ -10,13 +10,18 @@ import kotlin.time.Duration
  */
 public object FullJitter : Jitter {
 
-    override fun apply(rawDelay: Duration): Duration {
+    /**
+     * @throws IllegalArgumentException if [rawDelay] is negative or infinite.
+     */
+    override fun apply(rawDelay: Duration): Duration = apply(rawDelay, Random.Default)
+
+    internal fun apply(rawDelay: Duration, random: Random): Duration {
         requireFiniteNonNegative(rawDelay, "rawDelay")
 
         if (rawDelay == Duration.ZERO) {
             return Duration.ZERO
         }
 
-        return rawDelay * Random.nextDouble()
+        return rawDelay * random.nextDouble()
     }
 }

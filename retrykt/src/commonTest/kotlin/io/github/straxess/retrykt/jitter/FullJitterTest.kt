@@ -1,5 +1,6 @@
 package io.github.straxess.retrykt.jitter
 
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -21,9 +22,10 @@ class FullJitterTest {
     @Test
     fun `returns delay in range`() {
         val rawDelay = 100.milliseconds
+        val random = Random(0)
 
         repeat(1_000) {
-            val actual = FullJitter.apply(rawDelay)
+            val actual = FullJitter.apply(rawDelay, random)
 
             assertTrue(actual >= Duration.ZERO)
             assertTrue(actual <= rawDelay)
@@ -33,10 +35,11 @@ class FullJitterTest {
     @Test
     fun `returns randomized delay`() {
         val rawDelay = 100.milliseconds
+        val random = Random(0)
 
         val delays = buildSet {
             repeat(1_000) {
-                add(FullJitter.apply(rawDelay))
+                add(FullJitter.apply(rawDelay, random))
             }
         }
 
@@ -59,8 +62,10 @@ class FullJitterTest {
 
     @Test
     fun `keeps minimum representable delay within bounds`() {
+        val random = Random(0)
+
         repeat(1_000) {
-            val actual = FullJitter.apply(1.nanoseconds)
+            val actual = FullJitter.apply(1.nanoseconds, random)
 
             assertTrue(actual >= Duration.ZERO)
             assertTrue(actual <= 1.nanoseconds)

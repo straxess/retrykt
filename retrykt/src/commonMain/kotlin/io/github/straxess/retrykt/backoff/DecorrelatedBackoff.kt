@@ -29,7 +29,9 @@ public class DecorrelatedBackoff(
         }
     }
 
-    override fun nextDelay(context: BackoffContext): Duration {
+    override fun nextDelay(context: BackoffContext): Duration = nextDelay(context, Random.Default)
+
+    internal fun nextDelay(context: BackoffContext, random: Random): Duration {
         val prevAppliedDelay = context.prevAppliedDelay ?: return initialDelay
         val upperBound = if (prevAppliedDelay > maxDelay / 3) maxDelay else prevAppliedDelay * 3
 
@@ -37,6 +39,6 @@ public class DecorrelatedBackoff(
             return initialDelay
         }
 
-        return initialDelay + (upperBound - initialDelay) * Random.nextDouble()
+        return initialDelay + (upperBound - initialDelay) * random.nextDouble()
     }
 }

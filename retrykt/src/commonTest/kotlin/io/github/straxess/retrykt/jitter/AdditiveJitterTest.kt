@@ -1,5 +1,6 @@
 package io.github.straxess.retrykt.jitter
 
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -15,10 +16,11 @@ class AdditiveJitterTest {
         val maxJitter = 100.milliseconds
         val jitter = AdditiveJitter(maxJitter)
         val baseDelay = 10.seconds
+        val random = Random(0)
 
         var hasJitter = false
         repeat(1_000) {
-            val actual = jitter.apply(baseDelay)
+            val actual = jitter.apply(baseDelay, random)
 
             assertTrue(actual >= baseDelay)
             assertTrue(actual <= (baseDelay + maxJitter))

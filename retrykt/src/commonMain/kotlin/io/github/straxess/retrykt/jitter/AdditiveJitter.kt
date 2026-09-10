@@ -22,7 +22,13 @@ public class AdditiveJitter(
         requireFiniteNonNegative(maxJitter, "maxJitter")
     }
 
-    override fun apply(rawDelay: Duration): Duration {
+    /**
+     * @throws IllegalArgumentException if [rawDelay] is negative or infinite.
+     * @throws IllegalStateException if `rawDelay + maxJitter` is infinite.
+     */
+    override fun apply(rawDelay: Duration): Duration = apply(rawDelay, Random.Default)
+
+    internal fun apply(rawDelay: Duration, random: Random): Duration {
         requireFiniteNonNegative(rawDelay, "rawDelay")
 
         if (maxJitter == Duration.ZERO) {
@@ -35,6 +41,6 @@ public class AdditiveJitter(
             "rawDelay + maxJitter must be finite."
         }
 
-        return rawDelay + (upperBound - rawDelay) * Random.nextDouble()
+        return rawDelay + (upperBound - rawDelay) * random.nextDouble()
     }
 }
