@@ -4,15 +4,18 @@ import io.github.straxess.retrykt.internal.requireFiniteNonNegative
 import kotlin.time.Duration
 
 /**
- * Adds [increment] for each retry, up to [maxDelay].
+ * Adds [increment] for each retry, up to the required finite [maxDelay].
+ *
+ * Requires `0 <= increment <= maxDelay < Duration.INFINITE`.
  */
 public class LinearBackoff(
     public val increment: Duration,
-    public val maxDelay: Duration = Duration.INFINITE,
+    public val maxDelay: Duration,
 ) : Backoff {
 
     init {
         requireFiniteNonNegative(increment, "increment")
+        requireFiniteNonNegative(maxDelay, "maxDelay")
 
         require(maxDelay >= increment) {
             "maxDelay must not be less than increment."
@@ -30,12 +33,7 @@ public class LinearBackoff(
             return maxDelay
         }
 
-        if (maxDelay.isInfinite()) {
-            // No upper bound.
-            return increment * attempt
-        }
-
-        if (attempt >= maxDelay / increment) {
+        if (increment > maxDelay / attempt) {
             return maxDelay
         }
 

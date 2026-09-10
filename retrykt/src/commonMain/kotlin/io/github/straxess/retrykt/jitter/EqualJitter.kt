@@ -6,7 +6,8 @@ import kotlin.time.Duration
 
 /**
  * AWS-style equal jitter: keeps half the delay and randomizes the other half.
- * The result is in the range `[rawDelay / 2, rawDelay)`.
+ * The result is in the range `[rawDelay / 2, rawDelay]`;
+ * the upper bound is reachable because [Duration] arithmetic rounds to representable values.
  */
 public object EqualJitter : Jitter {
 

@@ -6,14 +6,14 @@ import io.github.straxess.retrykt.backoff.ConstantBackoff
 import io.github.straxess.retrykt.listener.RetryDecision
 import io.github.straxess.retrykt.listener.RetryEvent
 import io.github.straxess.retrykt.listener.RetryListener
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.*
 import kotlinx.coroutines.test.currentTime
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.*
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.milliseconds
 
 class RetryTest {
@@ -140,6 +140,38 @@ class RetryTest {
         assertFalse(invoked)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `cancellation during delay prevents the next attempt and terminal callbacks`() = runTest {
+        var attempts = 0
+        val listenerEvents = mutableListOf<String>()
+
+        val job =
+            launch {
+                retry(
+                    backoff = ConstantBackoff(1.days),
+                    listener = RetryListener(
+                        onRetry = { _, _ -> listenerEvents += "retry" },
+                        onSuccess = { listenerEvents += "success" },
+                        onFailure = { listenerEvents += "failure" },
+                    ),
+                ) {
+                    attempts++
+                    error("retry")
+                }
+            }
+
+        runCurrent()
+        assertEquals(1, attempts)
+        assertEquals(listOf("retry"), listenerEvents)
+
+        job.cancelAndJoin()
+
+        assertTrue(job.isCancelled)
+        assertEquals(1, attempts)
+        assertEquals(listOf("retry"), listenerEvents)
+    }
+
     @Test
     fun `throws IllegalStateException if backoff returns negative delay`() = runTest {
         assertFailsWith<IllegalStateException> {
@@ -160,6 +192,65 @@ class RetryTest {
                 error("task should not succeed")
             }
         }
+    }
+
+    @Test
+    fun `propagates exceptions from retry collaborators unchanged`() = runTest {
+        val retryOnException = RuntimeException("retryOn")
+        val backoffException = RuntimeException("backoff")
+        val jitterException = RuntimeException("jitter")
+
+        val actualRetryOnException =
+            assertFailsWith<RuntimeException> {
+                retry(retryOn = RetryOn.outcome<Unit> { throw retryOnException }) {}
+            }
+        val actualBackoffException =
+            assertFailsWith<RuntimeException> {
+                retry(
+                    backoff = object : Backoff {
+                        override fun nextDelay(context: BackoffContext): Duration = throw backoffException
+                    },
+                ) {
+                    error("retry")
+                }
+            }
+        val actualJitterException =
+            assertFailsWith<RuntimeException> {
+                retry(jitter = { throw jitterException }) { error("retry") }
+            }
+
+        assertSame(retryOnException, actualRetryOnException)
+        assertSame(backoffException, actualBackoffException)
+        assertSame(jitterException, actualJitterException)
+    }
+
+    @Test
+    fun `propagates exceptions from listener callbacks unchanged`() = runTest {
+        val retryException = RuntimeException("onRetry")
+        val successException = RuntimeException("onSuccess")
+        val failureException = RuntimeException("onFailure")
+
+        val actualRetryException =
+            assertFailsWith<RuntimeException> {
+                retry(listener = RetryListener(onRetry = { _, _ -> throw retryException })) { error("retry") }
+            }
+        val actualSuccessException =
+            assertFailsWith<RuntimeException> {
+                retry(listener = RetryListener(onSuccess = { throw successException })) {}
+            }
+        val actualFailureException =
+            assertFailsWith<RuntimeException> {
+                retry(
+                    retryOn = RetryOn.thrown { false },
+                    listener = RetryListener(onFailure = { throw failureException }),
+                ) {
+                    error("failure")
+                }
+            }
+
+        assertSame(retryException, actualRetryException)
+        assertSame(successException, actualSuccessException)
+        assertSame(failureException, actualFailureException)
     }
 
     @Test
@@ -610,13 +701,13 @@ class RetryTest {
     }
 
     @Test
-    fun `backoff receives last applied delay`() = runTest {
-        val lastAppliedDelays = mutableListOf<Duration?>()
+    fun `backoff receives prev applied delay`() = runTest {
+        val prevAppliedDelays = mutableListOf<Duration?>()
 
         retry(
             backoff = object : Backoff {
                 override fun nextDelay(context: BackoffContext): Duration {
-                    lastAppliedDelays += context.lastAppliedDelay
+                    prevAppliedDelays += context.prevAppliedDelay
                     return 100.milliseconds * context.attempt
                 }
             },
@@ -627,7 +718,7 @@ class RetryTest {
             }
         }
 
-        assertEquals(listOf(null, 150.milliseconds, 250.milliseconds), lastAppliedDelays)
+        assertEquals(listOf(null, 150.milliseconds, 250.milliseconds), prevAppliedDelays)
     }
 
     @Test
@@ -659,8 +750,8 @@ class RetryTest {
     }
 
     @Test
-    fun `throws RetryStoppedException with InfiniteDelay if backoff returns infinite delay`() = runTest {
-        val e = assertFailsWith<RetryStoppedException> {
+    fun `throws IllegalStateException if backoff returns infinite delay`() = runTest {
+        assertFailsWith<IllegalStateException> {
             retry(
                 backoff = object : Backoff {
                     override fun nextDelay(context: BackoffContext) = Duration.INFINITE
@@ -669,18 +760,36 @@ class RetryTest {
                 error("task should not succeed")
             }
         }
-
-        assertTrue(e.reason is RetryStoppedReason.InfiniteDelay)
     }
 
     @Test
-    fun `throws RetryStoppedException with InfiniteDelay if jitter returns infinite delay`() = runTest {
-        val e = assertFailsWith<RetryStoppedException> {
+    fun `throws IllegalStateException if jitter returns infinite delay`() = runTest {
+        assertFailsWith<IllegalStateException> {
             retry(jitter = { Duration.INFINITE }) {
                 error("task should not succeed")
             }
         }
+    }
 
-        assertTrue(e.reason is RetryStoppedReason.InfiniteDelay)
+    @Test
+    fun `invalid strategy delay does not notify listener`() = runTest {
+        var listenerCalled = false
+
+        assertFailsWith<IllegalStateException> {
+            retry(
+                backoff = object : Backoff {
+                    override fun nextDelay(context: BackoffContext): Duration = Duration.INFINITE
+                },
+                listener = RetryListener(
+                    onRetry = { _, _ -> listenerCalled = true },
+                    onSuccess = { listenerCalled = true },
+                    onFailure = { listenerCalled = true },
+                ),
+            ) {
+                error("retry")
+            }
+        }
+
+        assertFalse(listenerCalled)
     }
 }

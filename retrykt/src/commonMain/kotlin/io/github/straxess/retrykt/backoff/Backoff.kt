@@ -3,15 +3,16 @@ package io.github.straxess.retrykt.backoff
 import kotlin.time.Duration
 
 /**
- * Calculates the delay before the next retry.
+ * Calculates the raw delay before the next retry.
  *
- * [Duration.INFINITE] indicates that a finite delay cannot be calculated.
- * RetryKt treats it as a request to stop the retry process.
+ * Implementations must return a finite, non-negative [Duration].
+ * RetryKt throws [IllegalStateException] when an implementation violates this contract.
+ * Exceptions thrown by an implementation propagate to the caller unchanged.
  */
 public interface Backoff {
 
     /**
-     * Returns the base delay for the retry described by [context].
+     * Returns the raw delay for the retry described by [context].
      */
     public fun nextDelay(context: BackoffContext): Duration
 }

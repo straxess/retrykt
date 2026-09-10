@@ -20,7 +20,10 @@ val user = retry {
 
 val response = retry(
     retryOn = RetryOn.thrown { it is IOException },
-    backoff = ExponentialBackoff(200.milliseconds),
+    backoff = ExponentialBackoff(
+        initialDelay = 200.milliseconds,
+        maxDelay = 10.seconds,
+    ),
     jitter = FullJitter,
 ) {
     api.removeUser(user)
@@ -100,6 +103,7 @@ RetryKt is built and tested with the following Kotlin and Coroutines versions:
 
 | RetryKt | Kotlin | Kotlin Coroutines |
 |---------|--------|-------------------|
+| 0.5.x   | 2.3.x  | 1.10.x            |
 | 0.4.x   | 2.3.x  | 1.10.x            |
 
 ### JVM
@@ -129,6 +133,8 @@ val user = retry(maxAttempts = 5) {
     api.getUser()
 }
 ```
+
+`maxAttempts` is the total number of task invocations, including the initial attempt. It must be greater than zero.
 
 ### Retry specific exceptions
 
@@ -298,6 +304,17 @@ Built-in backoff implementations include the following examples:
 
 `DecorrelatedBackoff` is randomized and therefore is not represented by a fixed sequence.
 
+The growing built-in strategies (`LinearBackoff`, `FibonacciBackoff`, `ExponentialBackoff`, and
+`DecorrelatedBackoff`) require an explicit finite `maxDelay`. Their bounds follow these invariants:
+
+```text
+0 <= increment <= maxDelay < INFINITE
+0 <= initialDelay <= maxDelay < INFINITE
+```
+
+The `0 / 0` configuration is valid and produces zero delay. `ConstantBackoff` instead validates its single `delay`
+as finite and non-negative.
+
 Choose the strategy that matches your workload:
 
 | Strategy              | Typical use case                                                        |
@@ -335,7 +352,10 @@ Because it already introduces randomness, it normally does not need an additiona
 
 ```kotlin
 retry(
-    backoff = DecorrelatedBackoff(100.milliseconds),
+    backoff = DecorrelatedBackoff(
+        initialDelay = 100.milliseconds,
+        maxDelay = 10.seconds,
+    ),
     jitter = NoJitter,
 ) {
     request()
@@ -350,7 +370,7 @@ Implement `Backoff` to provide your own strategy:
 class MyBackoff : Backoff {
     override fun nextDelay(context: BackoffContext): Duration {
         val attempt = context.attempt
-        val lastAppliedDelay = context.lastAppliedDelay
+        val prevAppliedDelay = context.prevAppliedDelay
         // ...
     }
 }
@@ -362,7 +382,8 @@ retry(backoff = MyBackoff()) {
 }
 ```
 
-`lastAppliedDelay` is `null` for the first retry attempt.
+`BackoffContext.attempt` is the completed task attempt that caused the retry decision. `prevAppliedDelay` is the
+jittered delay applied before that attempt, or `null` while calculating the delay after attempt 1.
 
 ---
 
@@ -382,9 +403,15 @@ Built-in jitter strategies:
 | Strategy         | Behavior                                                  |
 |------------------|-----------------------------------------------------------|
 | `NoJitter`       | Leaves the backoff delay unchanged                        |
-| `FullJitter`     | Random delay in `[0, rawDelay)`                           |
+| `FullJitter`     | Random delay in `[0, rawDelay]`                           |
 | `EqualJitter`    | Keeps half of the raw delay and randomizes the other half |
-| `AdditiveJitter` | Adds an independent random delay in `[0, maxJitter)`      |
+| `AdditiveJitter` | Adds an independent random delay in `[0, maxJitter]`      |
+
+### Delay contract
+
+Every `Backoff` and `Jitter` must return a finite, non-negative `Duration`. A negative or `Duration.INFINITE` result
+from a custom strategy is a contract violation, so `retry()` and `retryBlocking()` throw `IllegalStateException`
+before notifying `onRetry` or waiting. Exceptions thrown by a strategy itself propagate unchanged.
 
 ### Full Jitter
 
@@ -416,7 +443,7 @@ appliedDelay = rawDelay / 2 + random(0, rawDelay / 2)
 
 ```kotlin
 retry(
-    backoff = ExponentialBackoff(200.milliseconds),
+    backoff = ExponentialBackoff(initialDelay = 200.milliseconds, maxDelay = 10.seconds),
     jitter = EqualJitter,
 ) {
     request()
@@ -429,14 +456,15 @@ retry(
 
 ```kotlin
 retry(
-    backoff = ExponentialBackoff(200.milliseconds),
+    backoff = ExponentialBackoff(initialDelay = 200.milliseconds, maxDelay = 10.seconds),
     jitter = AdditiveJitter(100.milliseconds),
 ) {
     request()
 }
 ```
 
-For a raw delay of `200ms`, the resulting delay is in `[200ms, 300ms)`
+For a raw delay of `200ms`, the resulting delay is in `[200ms, 300ms]`. Duration rounding can make an upper bound
+reachable even though `Random.nextDouble()` itself excludes `1.0`.
 
 Unlike `FullJitter` and `EqualJitter`, the random component is independent of the backoff delay.
 
@@ -465,7 +493,8 @@ retry(jitter = { rawDelay ->  /* ... */ }) {
 
 ## Observing Retries
 
-Use `RetryListener` to observe the retry lifecycle without changing retry behavior.
+Use `RetryListener` to observe the retry lifecycle. Listener callbacks are executed synchronously, and exceptions thrown
+by callbacks propagate to the caller.
 
 ```kotlin
 retry(
@@ -498,6 +527,12 @@ The `onRetry` callback receives both objects.
 
 `onRetry` is called after the retry decision has been made and before the delay is applied.
 
+`onSuccess` runs when a returned outcome is accepted.
+
+`onFailure` runs when an exception is not retryable or the final allowed outcome is still retryable.
+
+Invalid strategy delays and cancellation do not produce a terminal listener event.
+
 ---
 
 ## Coroutine API
@@ -509,7 +544,7 @@ Use `retry()` from `suspend` code.
 ```kotlin
 val user = retry(
     retryOn = RetryOn.thrown { it is IOException },
-    backoff = ExponentialBackoff(200.milliseconds),
+    backoff = ExponentialBackoff(initialDelay = 200.milliseconds, maxDelay = 10.seconds),
     jitter = FullJitter,
 ) {
     client.get("/users/$id").body<User>()
@@ -524,7 +559,7 @@ class UserRepository(
 ) {
 
     suspend fun getUser(id: Long): User {
-        return retry(backoff = LinearBackoff(200.milliseconds)) {
+        return retry(backoff = LinearBackoff(increment = 200.milliseconds, maxDelay = 5.seconds)) {
             api.getUser(id)
         }
     }
@@ -575,7 +610,7 @@ Typical examples include:
 val callback = staticCFunction { chunk ->
     retryBlocking(
         retryOn = RetryOn.thrown { it is IOException },
-        backoff = ExponentialBackoff(100.milliseconds),
+        backoff = ExponentialBackoff(initialDelay = 100.milliseconds, maxDelay = 10.seconds),
         jitter = FullJitter,
     ) {
         uploader.send(chunk)
@@ -678,7 +713,7 @@ retry(
 
 Yes. Implement `Backoff` and pass it to `retry()` or `retryBlocking()`.
 
-`BackoffContext` provides the attempt number and the applied delay used before the current retry.
+`BackoffContext` provides the attempt number and the applied delay used before the current attempt.
 
 ### Can I implement my own jitter?
 

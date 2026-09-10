@@ -1,25 +1,23 @@
 package io.github.straxess.retrykt.backoff
 
 import io.github.straxess.retrykt.internal.requireFiniteNonNegative
-import kotlin.math.log
 import kotlin.math.pow
 import kotlin.time.Duration
 
 /**
- * Multiplies [initialDelay] by [multiplier] after each attempt, up to [maxDelay].
+ * Multiplies [initialDelay] by [multiplier] after each attempt, up to the required finite [maxDelay].
+ *
+ * Requires `0 <= initialDelay <= maxDelay < Duration.INFINITE` and a finite [multiplier] of at least `1.0`.
  */
 public class ExponentialBackoff(
     public val initialDelay: Duration,
+    public val maxDelay: Duration,
     public val multiplier: Double = 2.0,
-    public val maxDelay: Duration = Duration.INFINITE,
 ) : Backoff {
 
     init {
         requireFiniteNonNegative(initialDelay, "initialDelay")
-
-        require(maxDelay >= Duration.ZERO) {
-            "maxDelay must not be negative."
-        }
+        requireFiniteNonNegative(maxDelay, "maxDelay")
 
         require(multiplier.isFinite()) {
             "multiplier must be finite."
@@ -37,7 +35,7 @@ public class ExponentialBackoff(
     override fun nextDelay(context: BackoffContext): Duration {
         val attempt = context.attempt
 
-        if (attempt <= 1) {
+        if (attempt == 1 || multiplier == 1.0) {
             return initialDelay
         }
 
@@ -49,24 +47,13 @@ public class ExponentialBackoff(
             return maxDelay
         }
 
-        if (maxDelay.isInfinite()) {
-            // No upper bound.
-            val power = multiplier.pow(attempt - 1)
-
-            if (power.isInfinite()) {
-                return Duration.INFINITE
-            }
-
-            return initialDelay * power
-        }
-
         val exponent = attempt - 1
-        val maxExponent = log(maxDelay / initialDelay, multiplier)
+        val factor = multiplier.pow(exponent)
 
-        if (exponent.toDouble() >= maxExponent) {
+        if (factor >= maxDelay / initialDelay) {
             return maxDelay
         }
 
-        return initialDelay * multiplier.pow(exponent)
+        return (initialDelay * factor).coerceAtMost(maxDelay)
     }
 }

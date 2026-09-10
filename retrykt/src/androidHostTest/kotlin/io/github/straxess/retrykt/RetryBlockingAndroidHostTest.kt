@@ -62,13 +62,13 @@ class RetryBlockingAndroidHostTest {
     }
 
     @Test
-    fun `backoff receives last applied delay`() {
-        val lastAppliedDelays = mutableListOf<Duration?>()
+    fun `backoff receives prev applied delay`() {
+        val prevAppliedDelays = mutableListOf<Duration?>()
 
         retryBlocking(
             backoff = object : Backoff {
                 override fun nextDelay(context: BackoffContext): Duration {
-                    lastAppliedDelays += context.lastAppliedDelay
+                    prevAppliedDelays += context.prevAppliedDelay
                     return 100.milliseconds * context.attempt
                 }
             },
@@ -79,7 +79,7 @@ class RetryBlockingAndroidHostTest {
             }
         }
 
-        assertEquals(listOf(null, 150.milliseconds, 250.milliseconds), lastAppliedDelays)
+        assertEquals(listOf(null, 150.milliseconds, 250.milliseconds), prevAppliedDelays)
     }
 
     @Test

@@ -5,7 +5,8 @@ import kotlin.random.Random
 import kotlin.time.Duration
 
 /**
- * AWS-style full jitter: returns a random delay in the range `[0, rawDelay)`.
+ * AWS-style full jitter: returns a random delay in the range `[0, rawDelay]`.
+ * The upper bound is reachable because [Duration] arithmetic rounds to representable values.
  */
 public object FullJitter : Jitter {
 

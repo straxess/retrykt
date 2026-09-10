@@ -6,6 +6,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.nanoseconds
 
 class FullJitterTest {
 
@@ -21,11 +22,11 @@ class FullJitterTest {
     fun `returns delay in range`() {
         val rawDelay = 100.milliseconds
 
-        repeat(100) {
+        repeat(1_000_000) {
             val actual = FullJitter.apply(rawDelay)
 
             assertTrue(actual >= Duration.ZERO)
-            assertTrue(actual < rawDelay)
+            assertTrue(actual <= rawDelay)
         }
     }
 
@@ -34,7 +35,7 @@ class FullJitterTest {
         val rawDelay = 100.milliseconds
 
         val delays = buildSet {
-            repeat(100) {
+            repeat(1_000_000) {
                 add(FullJitter.apply(rawDelay))
             }
         }
@@ -53,6 +54,16 @@ class FullJitterTest {
     fun `throws IllegalArgumentException for infinite raw delay`() {
         assertFailsWith<IllegalArgumentException> {
             FullJitter.apply(Duration.INFINITE)
+        }
+    }
+
+    @Test
+    fun `keeps minimum representable delay within bounds`() {
+        repeat(1_000_000) {
+            val actual = FullJitter.apply(1.nanoseconds)
+
+            assertTrue(actual >= Duration.ZERO)
+            assertTrue(actual <= 1.nanoseconds)
         }
     }
 }

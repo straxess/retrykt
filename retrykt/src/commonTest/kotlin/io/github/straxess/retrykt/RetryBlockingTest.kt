@@ -140,6 +140,65 @@ class RetryBlockingTest {
     }
 
     @Test
+    fun `propagates exceptions from retry collaborators unchanged`() {
+        val retryOnException = RuntimeException("retryOn")
+        val backoffException = RuntimeException("backoff")
+        val jitterException = RuntimeException("jitter")
+
+        val actualRetryOnException =
+            assertFailsWith<RuntimeException> {
+                retryBlocking(retryOn = RetryOn.outcome<Unit> { throw retryOnException }) {}
+            }
+        val actualBackoffException =
+            assertFailsWith<RuntimeException> {
+                retryBlocking(
+                    backoff = object : Backoff {
+                        override fun nextDelay(context: BackoffContext): Duration = throw backoffException
+                    },
+                ) {
+                    error("retry")
+                }
+            }
+        val actualJitterException =
+            assertFailsWith<RuntimeException> {
+                retryBlocking(jitter = { throw jitterException }) { error("retry") }
+            }
+
+        assertSame(retryOnException, actualRetryOnException)
+        assertSame(backoffException, actualBackoffException)
+        assertSame(jitterException, actualJitterException)
+    }
+
+    @Test
+    fun `propagates exceptions from listener callbacks unchanged`() {
+        val retryException = RuntimeException("onRetry")
+        val successException = RuntimeException("onSuccess")
+        val failureException = RuntimeException("onFailure")
+
+        val actualRetryException =
+            assertFailsWith<RuntimeException> {
+                retryBlocking(listener = RetryListener(onRetry = { _, _ -> throw retryException })) { error("retry") }
+            }
+        val actualSuccessException =
+            assertFailsWith<RuntimeException> {
+                retryBlocking(listener = RetryListener(onSuccess = { throw successException })) {}
+            }
+        val actualFailureException =
+            assertFailsWith<RuntimeException> {
+                retryBlocking(
+                    retryOn = RetryOn.thrown { false },
+                    listener = RetryListener(onFailure = { throw failureException }),
+                ) {
+                    error("failure")
+                }
+            }
+
+        assertSame(retryException, actualRetryException)
+        assertSame(successException, actualSuccessException)
+        assertSame(failureException, actualFailureException)
+    }
+
+    @Test
     fun `stops retrying when throwable no longer matches retryOn`() {
         var attempts = 0
 
@@ -544,8 +603,8 @@ class RetryBlockingTest {
     }
 
     @Test
-    fun `throws RetryStoppedException with InfiniteDelay if backoff returns infinite delay`() {
-        val e = assertFailsWith<RetryStoppedException> {
+    fun `throws IllegalStateException if backoff returns infinite delay`() {
+        assertFailsWith<IllegalStateException> {
             retryBlocking(
                 backoff = object : Backoff {
                     override fun nextDelay(context: BackoffContext) = Duration.INFINITE
@@ -554,18 +613,36 @@ class RetryBlockingTest {
                 error("task should not succeed")
             }
         }
-
-        assertTrue(e.reason is RetryStoppedReason.InfiniteDelay)
     }
 
     @Test
-    fun `throws RetryStoppedException with InfiniteDelay if jitter returns infinite delay`() {
-        val e = assertFailsWith<RetryStoppedException> {
+    fun `throws IllegalStateException if jitter returns infinite delay`() {
+        assertFailsWith<IllegalStateException> {
             retryBlocking(jitter = { Duration.INFINITE }) {
                 error("task should not succeed")
             }
         }
+    }
 
-        assertTrue(e.reason is RetryStoppedReason.InfiniteDelay)
+    @Test
+    fun `invalid strategy delay does not notify listener`() {
+        var listenerCalled = false
+
+        assertFailsWith<IllegalStateException> {
+            retryBlocking(
+                backoff = object : Backoff {
+                    override fun nextDelay(context: BackoffContext): Duration = Duration.INFINITE
+                },
+                listener = RetryListener(
+                    onRetry = { _, _ -> listenerCalled = true },
+                    onSuccess = { listenerCalled = true },
+                    onFailure = { listenerCalled = true },
+                ),
+            ) {
+                error("retry")
+            }
+        }
+
+        assertFalse(listenerCalled)
     }
 }

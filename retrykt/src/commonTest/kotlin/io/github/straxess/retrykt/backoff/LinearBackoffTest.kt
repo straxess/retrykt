@@ -12,8 +12,18 @@ import kotlin.time.Duration.Companion.seconds
 class LinearBackoffTest {
 
     @Test
+    fun `returns zero when initial delay is zero`() {
+        val backoff = LinearBackoff(increment = Duration.ZERO, maxDelay = Duration.ZERO)
+        val backoffContext = BackoffContext(attempt = Int.MAX_VALUE, prevAppliedDelay = null)
+
+        val actual = backoff.nextDelay(backoffContext)
+
+        assertEquals(Duration.ZERO, actual)
+    }
+
+    @Test
     fun `returns linear delay`() {
-        val backoff = LinearBackoff(10.seconds)
+        val backoff = LinearBackoff(10.seconds, 1.days)
 
         val firstDelay = backoff.nextDelay(BackoffContext(1, null))
         val secondDelay = backoff.nextDelay(BackoffContext(2, null))
@@ -26,10 +36,7 @@ class LinearBackoffTest {
 
     @Test
     fun `caps delay when linear value exceeds max delay`() {
-        val backoff = LinearBackoff(
-            increment = 100.milliseconds,
-            maxDelay = 950.milliseconds,
-        )
+        val backoff = LinearBackoff(increment = 100.milliseconds, maxDelay = 950.milliseconds)
 
         assertEquals(900.milliseconds, backoff.nextDelay(BackoffContext(9, null)))
         assertEquals(950.milliseconds, backoff.nextDelay(BackoffContext(10, null)))
@@ -37,11 +44,8 @@ class LinearBackoffTest {
     }
 
     @Test
-    fun `does not cap delay when max delay is infinite`() {
-        val backoff = LinearBackoff(
-            increment = 100.milliseconds,
-            maxDelay = Duration.INFINITE,
-        )
+    fun `does not cap delay when max delay is large`() {
+        val backoff = LinearBackoff(increment = 100.milliseconds, maxDelay = 1.days)
 
         assertEquals(200.milliseconds, backoff.nextDelay(BackoffContext(2, null)))
         assertEquals(10.seconds, backoff.nextDelay(BackoffContext(100, null)))
@@ -49,27 +53,17 @@ class LinearBackoffTest {
 
     @Test
     fun `returns zero when increment is zero`() {
-        val backoff = LinearBackoff(
-            increment = Duration.ZERO,
-            maxDelay = 10.seconds,
-        )
+        val backoff = LinearBackoff(increment = Duration.ZERO, maxDelay = 10.seconds)
+        val backoffContext = BackoffContext(attempt = Int.MAX_VALUE, prevAppliedDelay = null)
 
-        val actual = backoff.nextDelay(
-            BackoffContext(
-                attempt = Int.MAX_VALUE,
-                lastAppliedDelay = null,
-            ),
-        )
+        val actual = backoff.nextDelay(backoffContext)
 
         assertEquals(Duration.ZERO, actual)
     }
 
     @Test
     fun `returns max delay when increment equals max delay`() {
-        val backoff = LinearBackoff(
-            increment = 1.seconds,
-            maxDelay = 1.seconds,
-        )
+        val backoff = LinearBackoff(increment = 1.seconds, maxDelay = 1.seconds)
 
         assertEquals(1.seconds, backoff.nextDelay(BackoffContext(1, null)))
         assertEquals(1.seconds, backoff.nextDelay(BackoffContext(2, null)))
@@ -79,18 +73,10 @@ class LinearBackoffTest {
     @Test
     fun `does not overflow for max attempt`() {
         val maxDelay = 10.days
+        val backoff = LinearBackoff(increment = 1.days, maxDelay = maxDelay)
+        val backoffContext = BackoffContext(attempt = Int.MAX_VALUE, prevAppliedDelay = null)
 
-        val backoff = LinearBackoff(
-            increment = 1.days,
-            maxDelay = maxDelay,
-        )
-
-        val actual = backoff.nextDelay(
-            BackoffContext(
-                attempt = Int.MAX_VALUE,
-                lastAppliedDelay = null,
-            ),
-        )
+        val actual = backoff.nextDelay(backoffContext)
 
         assertEquals(maxDelay, actual)
     }
@@ -102,10 +88,9 @@ class LinearBackoffTest {
         assertTrue((maxDelay * 3).isInfinite())
 
         val increment = maxDelay - 1.milliseconds
-
         val backoff = LinearBackoff(increment = increment, maxDelay = maxDelay)
+        val backoffContext = BackoffContext(attempt = 2, prevAppliedDelay = null)
 
-        val backoffContext = BackoffContext(attempt = 2, lastAppliedDelay = null)
         val actual = backoff.nextDelay(backoffContext)
 
         assertEquals(maxDelay, actual)
@@ -114,14 +99,14 @@ class LinearBackoffTest {
     @Test
     fun `throws IllegalArgumentException if increment is less than 0`() {
         assertFailsWith<IllegalArgumentException> {
-            LinearBackoff((-10).seconds)
+            LinearBackoff((-10).seconds, 1.days)
         }
     }
 
     @Test
     fun `throws IllegalArgumentException if infinite increment`() {
         assertFailsWith<IllegalArgumentException> {
-            LinearBackoff(Duration.INFINITE)
+            LinearBackoff(Duration.INFINITE, 1.days)
         }
     }
 
@@ -129,6 +114,20 @@ class LinearBackoffTest {
     fun `throws IllegalArgumentException when max delay is less than increment`() {
         assertFailsWith<IllegalArgumentException> {
             LinearBackoff(increment = 100.milliseconds, maxDelay = 99.milliseconds)
+        }
+    }
+
+    @Test
+    fun `throws IllegalArgumentException if max delay is negative`() {
+        assertFailsWith<IllegalArgumentException> {
+            LinearBackoff(increment = Duration.ZERO, maxDelay = (-1).milliseconds)
+        }
+    }
+
+    @Test
+    fun `throws IllegalArgumentException if infinite maxDelay`() {
+        assertFailsWith<IllegalArgumentException> {
+            LinearBackoff(1.days, Duration.INFINITE)
         }
     }
 }

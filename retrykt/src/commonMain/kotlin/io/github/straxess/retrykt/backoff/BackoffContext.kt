@@ -5,13 +5,12 @@ import kotlin.time.Duration
 public class BackoffContext internal constructor(
 
     /**
-     * Attempt number, starting at 1.
+     * Number of the completed attempt that caused this backoff calculation, starting at 1.
      */
     public val attempt: Int,
 
     /**
-     * The actual delay applied before the current attempt, after backoff and jitter,
-     * or `null` for the first attempt.
+     * The previous actual applied delay, after backoff and jitter, or `null` for the first attempt.
      */
-    public val lastAppliedDelay: Duration?,
+    public val prevAppliedDelay: Duration?,
 )

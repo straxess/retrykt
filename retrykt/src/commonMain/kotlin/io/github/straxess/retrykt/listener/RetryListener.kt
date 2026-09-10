@@ -3,6 +3,9 @@ package io.github.straxess.retrykt.listener
 /**
  * Listens for retry lifecycle events.
  *
+ * Callbacks run synchronously.
+ * Exceptions thrown by callbacks stop retry processing and propagate to the caller unchanged.
+ *
  * @see RetryEvent
  */
 public interface RetryListener {
@@ -35,7 +38,6 @@ public interface RetryListener {
             onSuccess: ((RetryEvent<*>) -> Unit)? = null,
             onFailure: ((RetryEvent<*>) -> Unit)? = null,
         ): RetryListener = object : RetryListener {
-
             override fun onRetry(retryEvent: RetryEvent<*>, retryDecision: RetryDecision) {
                 onRetry?.invoke(retryEvent, retryDecision)
             }

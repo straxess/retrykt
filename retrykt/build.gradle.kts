@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "io.github.straxess"
-version = "0.4.1"
+version = "0.5.0"
 
 kotlin {
     explicitApi()
@@ -21,7 +21,7 @@ kotlin {
             jvmTarget = JvmTarget.JVM_11
         }
     }
-    androidLibrary {
+    android {
         namespace = group.toString()
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
@@ -119,6 +119,9 @@ mavenPublishing {
             developer {
                 id = "straxess"
                 name = "Andrey Afanasyev"
+                email = "strx741@gmail.com"
+                organization = "straxess"
+                organizationUrl = "https://github.com/straxess"
                 url = "https://github.com/straxess"
             }
         }

@@ -7,18 +7,16 @@ import kotlin.time.Duration
  * Increases delays according to the Fibonacci sequence.
  *
  * The first two delays are [initialDelay], followed by the sum of the two previous delays, capped at [maxDelay].
+ * Requires `0 <= initialDelay <= maxDelay < Duration.INFINITE`.
  */
 public class FibonacciBackoff(
     public val initialDelay: Duration,
-    public val maxDelay: Duration = Duration.INFINITE,
+    public val maxDelay: Duration,
 ) : Backoff {
 
     init {
         requireFiniteNonNegative(initialDelay, "initialDelay")
-
-        require(maxDelay >= Duration.ZERO) {
-            "maxDelay must not be negative."
-        }
+        requireFiniteNonNegative(maxDelay, "maxDelay")
 
         require(maxDelay >= initialDelay) {
             "maxDelay must not be less than initialDelay."

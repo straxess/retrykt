@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -12,8 +13,18 @@ import kotlin.time.Duration.Companion.seconds
 class FibonacciBackoffTest {
 
     @Test
+    fun `returns zero when initial delay is zero`() {
+        val backoff = FibonacciBackoff(initialDelay = Duration.ZERO, maxDelay = Duration.ZERO)
+        val backoffContext = BackoffContext(attempt = Int.MAX_VALUE, prevAppliedDelay = null)
+
+        val actual = backoff.nextDelay(backoffContext)
+
+        assertEquals(Duration.ZERO, actual)
+    }
+
+    @Test
     fun `returns fibonacci sequence`() {
-        val backoff = FibonacciBackoff(1.seconds)
+        val backoff = FibonacciBackoff(1.seconds, 1.days)
 
         assertEquals(1.seconds, backoff.nextDelay(BackoffContext(1, null)))
         assertEquals(1.seconds, backoff.nextDelay(BackoffContext(2, null)))
@@ -25,10 +36,7 @@ class FibonacciBackoffTest {
 
     @Test
     fun `respects maxDelay`() {
-        val backoff = FibonacciBackoff(
-            initialDelay = 10.seconds,
-            maxDelay = 15.seconds,
-        )
+        val backoff = FibonacciBackoff(initialDelay = 10.seconds, maxDelay = 15.seconds)
 
         assertEquals(10.seconds, backoff.nextDelay(BackoffContext(1, null)))
         assertEquals(10.seconds, backoff.nextDelay(BackoffContext(2, null)))
@@ -39,10 +47,9 @@ class FibonacciBackoffTest {
     @Test
     fun `does not overflow for max attempt`() {
         val maxDelay = 1.hours
-
         val backoff = FibonacciBackoff(initialDelay = 1.milliseconds, maxDelay = maxDelay)
+        val backoffContext = BackoffContext(attempt = Int.MAX_VALUE, prevAppliedDelay = null)
 
-        val backoffContext = BackoffContext(attempt = Int.MAX_VALUE, lastAppliedDelay = null)
         val actual = backoff.nextDelay(backoffContext)
 
         assertEquals(maxDelay, actual)
@@ -55,10 +62,9 @@ class FibonacciBackoffTest {
         assertTrue((maxDelay * 2).isInfinite())
 
         val initialDelay = maxDelay - 1.milliseconds
-
         val backoff = FibonacciBackoff(initialDelay = initialDelay, maxDelay = maxDelay)
+        val backoffContext = BackoffContext(attempt = 3, prevAppliedDelay = null)
 
-        val backoffContext = BackoffContext(attempt = 3, lastAppliedDelay = null)
         val actual = backoff.nextDelay(backoffContext)
 
         assertEquals(maxDelay, actual)
@@ -67,14 +73,14 @@ class FibonacciBackoffTest {
     @Test
     fun `throws IllegalArgumentException if initialDelay is less than 0`() {
         assertFailsWith<IllegalArgumentException> {
-            FibonacciBackoff((-10).seconds)
+            FibonacciBackoff((-10).seconds, 1.days)
         }
     }
 
     @Test
     fun `throws IllegalArgumentException if infinite constant delay`() {
         assertFailsWith<IllegalArgumentException> {
-            FibonacciBackoff(Duration.INFINITE)
+            FibonacciBackoff(Duration.INFINITE, 1.days)
         }
     }
 
@@ -82,6 +88,13 @@ class FibonacciBackoffTest {
     fun `throws IllegalArgumentException if maxDelay is less than 0`() {
         assertFailsWith<IllegalArgumentException> {
             FibonacciBackoff(10.seconds, maxDelay = (-10).seconds)
+        }
+    }
+
+    @Test
+    fun `throws IllegalArgumentException if infinite maxDelay`() {
+        assertFailsWith<IllegalArgumentException> {
+            FibonacciBackoff(1.days, Duration.INFINITE)
         }
     }
 

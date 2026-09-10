@@ -8,7 +8,7 @@ public class RetryContext<T> internal constructor(
     public val attempt: Int,
 
     /**
-     * Maximum allowed attempts.
+     * Maximum total task invocations, including the initial attempt.
      */
     public val maxAttempts: Int,
 

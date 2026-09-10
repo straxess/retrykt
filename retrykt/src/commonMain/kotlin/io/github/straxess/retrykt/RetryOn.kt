@@ -4,6 +4,7 @@ package io.github.straxess.retrykt
  * Decides whether RetryKt should run another attempt after an outcome.
  *
  * Create one with [default], [thrown], [returned], or [outcome].
+ * Exceptions thrown by a predicate propagate to the caller unchanged.
  */
 public class RetryOn<in T> internal constructor(
     internal val shouldRetry: (AttemptOutcome<T>) -> Boolean,
