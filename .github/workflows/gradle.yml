@@ -157,7 +157,6 @@ jobs:
 
   coverage:
     name: JVM Coverage
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [ code-style, test, build-only ]
     runs-on: ubuntu-latest
 
@@ -177,10 +176,11 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Generate JVM coverage report
-        run: ./gradlew jvmTest koverXmlReportJvm --no-configuration-cache
+      - name: Verify JVM coverage and generate report
+        run: ./gradlew koverVerifyJvm koverXmlReportJvm --no-configuration-cache
 
       - name: Upload coverage reports to Codecov
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

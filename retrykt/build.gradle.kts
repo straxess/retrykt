@@ -87,6 +87,18 @@ configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
     )
 }
 
+kover {
+    reports {
+        variant("jvm") {
+            verify {
+                rule("Minimum line coverage") {
+                    minBound(80)
+                }
+            }
+        }
+    }
+}
+
 // The standard build lifecycle depends on check, so `./gradlew build` also verifies ktlint, compilation, and tests.
 tasks.named("check") {
     dependsOn("ktlintCheck")
