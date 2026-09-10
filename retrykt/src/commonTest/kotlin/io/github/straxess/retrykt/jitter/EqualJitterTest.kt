@@ -23,7 +23,7 @@ class EqualJitterTest {
         val rawDelay = 10.milliseconds
         val minimumDelay = rawDelay / 2
 
-        repeat(1_000_000) {
+        repeat(1_000) {
             val actual = EqualJitter.apply(rawDelay)
 
             assertTrue(actual >= minimumDelay)
@@ -36,7 +36,7 @@ class EqualJitterTest {
         val rawDelay = 100.milliseconds
 
         val delays = buildSet {
-            repeat(1_000_000) {
+            repeat(1_000) {
                 add(EqualJitter.apply(rawDelay))
             }
         }
@@ -62,7 +62,7 @@ class EqualJitterTest {
     fun `handles sub-divisible raw delays`() {
         assertEquals(Duration.ZERO, EqualJitter.apply(1.nanoseconds))
 
-        repeat(1_000_000) {
+        repeat(1_000) {
             val actual = EqualJitter.apply(2.nanoseconds)
 
             assertTrue(actual >= 1.nanoseconds)

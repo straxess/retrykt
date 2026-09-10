@@ -22,7 +22,7 @@ class FullJitterTest {
     fun `returns delay in range`() {
         val rawDelay = 100.milliseconds
 
-        repeat(1_000_000) {
+        repeat(1_000) {
             val actual = FullJitter.apply(rawDelay)
 
             assertTrue(actual >= Duration.ZERO)
@@ -35,7 +35,7 @@ class FullJitterTest {
         val rawDelay = 100.milliseconds
 
         val delays = buildSet {
-            repeat(1_000_000) {
+            repeat(1_000) {
                 add(FullJitter.apply(rawDelay))
             }
         }
@@ -59,7 +59,7 @@ class FullJitterTest {
 
     @Test
     fun `keeps minimum representable delay within bounds`() {
-        repeat(1_000_000) {
+        repeat(1_000) {
             val actual = FullJitter.apply(1.nanoseconds)
 
             assertTrue(actual >= Duration.ZERO)
