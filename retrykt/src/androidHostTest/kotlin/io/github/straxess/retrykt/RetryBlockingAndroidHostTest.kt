@@ -3,9 +3,9 @@ package io.github.straxess.retrykt
 import io.github.straxess.retrykt.backoff.Backoff
 import io.github.straxess.retrykt.backoff.BackoffContext
 import io.github.straxess.retrykt.backoff.ConstantBackoff
-import io.github.straxess.retrykt.listener.RetryDecision
-import io.github.straxess.retrykt.listener.RetryEvent
+import io.github.straxess.retrykt.listener.AttemptEvent
 import io.github.straxess.retrykt.listener.RetryListener
+import io.github.straxess.retrykt.listener.RetryPlan
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -83,14 +83,14 @@ class RetryBlockingAndroidHostTest {
     }
 
     @Test
-    fun `onRetry receives event and decision`() {
-        val callbacks = mutableListOf<Pair<RetryEvent<*>, RetryDecision>>()
+    fun `onRetry receives event and plan`() {
+        val callbacks = mutableListOf<Pair<AttemptEvent<*>, RetryPlan>>()
 
         retryBlocking(
             backoff = ConstantBackoff(100.milliseconds),
             retryOn = RetryOn.returned { it == "retry" },
             listener = RetryListener(
-                onRetry = { event, decision -> callbacks += event to decision },
+                onRetry = { event, plan -> callbacks += event to plan },
             ),
         ) {
             if (it.attempt < 2) {
@@ -102,10 +102,10 @@ class RetryBlockingAndroidHostTest {
 
         assertEquals(1, callbacks.size)
 
-        val (event, decision) = callbacks.single()
+        val (event, plan) = callbacks.single()
 
         assertTrue(event.outcome is AttemptOutcome.Returned)
         assertEquals("retry", event.outcome.value)
-        assertEquals(100.milliseconds, decision.nextAppliedDelay)
+        assertEquals(100.milliseconds, plan.nextAppliedDelay)
     }
 }

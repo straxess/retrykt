@@ -6,13 +6,13 @@
 [![Kotlin Multiplatform](https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin)](https://kotlinlang.org/docs/multiplatform.html)
 [![License](https://img.shields.io/github/license/straxess/retrykt)](LICENSE)
 
-RetryKt is a small Kotlin Multiplatform library for retrying failed operations. It works with suspending and blocking
-code and lets you control:
+RetryKt is a small Kotlin Multiplatform library for repeating operations when their results are rejected. It works with
+suspending and blocking code and lets you control:
 
 - which results should be retried;
 - how long to wait between attempts;
 - whether to add a random delay;
-- how to observe retries, successes, and failures.
+- how to observe retries, accepted results, and exhausted retries.
 
 ```kotlin
 val user = retry {
@@ -129,7 +129,7 @@ thrown by the policy itself is also passed through unchanged.
 
 ## Waiting between attempts
 
-A `Backoff` calculates a delay after a failed attempt. A `Jitter` can then randomize that delay before the retry:
+A `Backoff` calculates a delay after a rejected outcome. A `Jitter` can then randomize that delay before the retry:
 
 ```text
 Backoff -> backoff delay -> Jitter -> next applied delay -> delay()/sleep() -> next attempt
@@ -157,6 +157,8 @@ val backoff = ExponentialBackoff(
 ```
 
 The first attempt starts immediately. `firstDelay` is the delay before the first retry, which is attempt 2.
+`maxDelay` limits the delay produced by the backoff strategy. Jitter is applied afterward, so a strategy such as
+`AdditiveJitter` can make `nextAppliedDelay` greater than `maxDelay`.
 
 `DecorrelatedBackoff` already adds randomness, so it is normally used without extra jitter:
 
@@ -251,14 +253,14 @@ Use `RetryListener` for logging, tracing, or metrics:
 ```kotlin
 retry(
     listener = RetryListener(
-        onRetry = { event, decision ->
-            log.info("Attempt ${event.context.attempt} failed; retrying in ${decision.nextAppliedDelay}")
+        onRetry = { event, plan ->
+            log.info("Attempt ${event.context.attempt} was rejected; retrying in ${plan.nextAppliedDelay}")
         },
         onSuccess = { event ->
             log.info("Succeeded on attempt ${event.context.attempt}")
         },
         onFailure = { event ->
-            log.info("Stopped after attempt ${event.context.attempt}")
+            log.info("Retrying stopped after attempt ${event.context.attempt}")
         },
     ),
 ) {
@@ -268,7 +270,8 @@ retry(
 
 - `onRetry` runs after an attempt is marked for retry and before the delay.
 - `onSuccess` runs when a returned value is accepted.
-- `onFailure` runs for a non-retryable exception or when the attempt limit is reached.
+- `onFailure` runs when retrying ends without a successful result: either an exception is not retryable or the attempt
+  limit is reached while the last outcome is still rejected.
 
 Callbacks run synchronously. An exception from a callback stops retrying and is passed to the caller. Cancellation and
 invalid strategy delays do not call a final listener callback.
@@ -326,14 +329,14 @@ Both functions use the same retry policies, backoff, jitter, context, and listen
 JavaScript and WebAssembly cannot block the current thread. On these platforms, `retryBlocking()` works only when the
 delay is zero; a positive delay throws `UnsupportedOperationException`.
 
-## Cancellation and final failures
+## Cancellation and exhausted retries
 
 `retry()` respects coroutine cancellation, including cancellation during a delay. `CancellationException` is never sent
 to `RetryOn` or retried. `retryBlocking()` also passes this exception through unchanged.
 
-If the last allowed result is still retryable, RetryKt throws `RetryStoppedException`:
+If the last allowed result is still retryable, RetryKt throws `RetryExhaustedException`:
 
-- `reason` is `RetryStoppedReason.MaxAttemptsReached(maxAttempts)`;
+- `reason` is `RetryExhaustionReason.MaxAttemptsReached(maxAttempts)`;
 - `lastOutcome` contains the value or exception from the last attempt;
 - `cause` is the last exception when `lastOutcome` is `AttemptOutcome.Thrown`.
 
@@ -358,7 +361,7 @@ work on its host. For other Native targets, it compiles or links the test binari
 
 ## Development
 
-See [CONTRIBUTOR.md](CONTRIBUTOR.md) for setup and contribution checks.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and contribution checks.
 
 ## License
 

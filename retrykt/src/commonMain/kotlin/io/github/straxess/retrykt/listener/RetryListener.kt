@@ -1,7 +1,7 @@
 package io.github.straxess.retrykt.listener
 
 /**
- * Receives retry, success, and failure events.
+ * Receives retry, success, and terminal failure events.
  *
  * Callbacks run synchronously. An exception from a callback stops the operation and is passed to the caller unchanged.
  */
@@ -10,20 +10,20 @@ public interface RetryListener {
     /**
      * Called before waiting for the next attempt.
      *
-     * @param retryEvent The completed attempt.
-     * @param retryDecision The delay before the next attempt.
+     * @param attemptEvent The completed attempt.
+     * @param retryPlan The delay before the next attempt.
      */
-    public fun onRetry(retryEvent: RetryEvent<*>, retryDecision: RetryDecision) {}
+    public fun onRetry(attemptEvent: AttemptEvent<*>, retryPlan: RetryPlan) {}
 
     /**
      * Called when a returned value is accepted.
      */
-    public fun onSuccess(retryEvent: RetryEvent<*>) {}
+    public fun onSuccess(attemptEvent: AttemptEvent<*>) {}
 
     /**
-     * Called when an exception will not be retried or no attempts remain.
+     * Called when retrying ends because an exception is not retryable or all allowed attempts are used.
      */
-    public fun onFailure(retryEvent: RetryEvent<*>) {}
+    public fun onFailure(attemptEvent: AttemptEvent<*>) {}
 
     public companion object {
 
@@ -31,20 +31,20 @@ public interface RetryListener {
          * Creates a listener from optional callbacks.
          */
         public operator fun invoke(
-            onRetry: ((RetryEvent<*>, RetryDecision) -> Unit)? = null,
-            onSuccess: ((RetryEvent<*>) -> Unit)? = null,
-            onFailure: ((RetryEvent<*>) -> Unit)? = null,
+            onRetry: ((AttemptEvent<*>, RetryPlan) -> Unit)? = null,
+            onSuccess: ((AttemptEvent<*>) -> Unit)? = null,
+            onFailure: ((AttemptEvent<*>) -> Unit)? = null,
         ): RetryListener = object : RetryListener {
-            override fun onRetry(retryEvent: RetryEvent<*>, retryDecision: RetryDecision) {
-                onRetry?.invoke(retryEvent, retryDecision)
+            override fun onRetry(attemptEvent: AttemptEvent<*>, retryPlan: RetryPlan) {
+                onRetry?.invoke(attemptEvent, retryPlan)
             }
 
-            override fun onSuccess(retryEvent: RetryEvent<*>) {
-                onSuccess?.invoke(retryEvent)
+            override fun onSuccess(attemptEvent: AttemptEvent<*>) {
+                onSuccess?.invoke(attemptEvent)
             }
 
-            override fun onFailure(retryEvent: RetryEvent<*>) {
-                onFailure?.invoke(retryEvent)
+            override fun onFailure(attemptEvent: AttemptEvent<*>) {
+                onFailure?.invoke(attemptEvent)
             }
         }
     }

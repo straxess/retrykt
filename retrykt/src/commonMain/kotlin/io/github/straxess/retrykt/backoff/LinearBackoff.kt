@@ -4,7 +4,7 @@ import io.github.straxess.retrykt.internal.requireFiniteNonNegative
 import kotlin.time.Duration
 
 /**
- * Adds [increment] after each attempt, without exceeding [maxDelay].
+ * The first retry delay is [increment]. Each later retry adds another [increment], without exceeding [maxDelay].
  *
  * Both durations must be finite and `0 <= increment <= maxDelay`.
  *

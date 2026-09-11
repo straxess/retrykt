@@ -12,7 +12,7 @@ import io.github.straxess.retrykt.RetryContext
  *                       └──> onRetry
  *                              │
  *                              ▼
- *                         RetryEvent
+ *                         AttemptEvent
  *                         ├─ outcome (current attempt)
  *                         └─ context
  *                            └─ prevOutcome (previous attempt)
@@ -21,7 +21,7 @@ import io.github.straxess.retrykt.RetryContext
  * @param outcome The completed attempt's outcome.
  * @param context The context used for that attempt.
  */
-public class RetryEvent<T> internal constructor(
+public class AttemptEvent<T> internal constructor(
     public val outcome: AttemptOutcome<T>,
     public val context: RetryContext<T>,
 )

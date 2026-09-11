@@ -1,17 +1,17 @@
 package io.github.straxess.retrykt
 
 /**
- * Thrown when [retry] or [retryBlocking] uses all allowed attempts and the last result is still retryable.
+ * Thrown when [retry] or [retryBlocking] uses all allowed attempts and the retry policy still rejects the outcome.
  *
  * Other exceptions are passed to the caller unchanged. If [lastOutcome] is [AttemptOutcome.Thrown], its exception is
  * also available as [cause].
  */
-public class RetryStoppedException internal constructor(
+public class RetryExhaustedException internal constructor(
 
     /**
-     * Why RetryKt stopped retrying.
+     * Why RetryKt exhausted the retry process.
      */
-    public val reason: RetryStoppedReason,
+    public val reason: RetryExhaustionReason,
 
     /**
      * The outcome of the last allowed attempt.

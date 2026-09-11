@@ -9,7 +9,7 @@ class RetryListenerTest {
 
     @Test
     fun `default callbacks do nothing`() {
-        val event = RetryEvent(
+        val event = AttemptEvent(
             outcome = AttemptOutcome.Returned(1),
             context = RetryContext(
                 attempt = 2,
@@ -18,18 +18,18 @@ class RetryListenerTest {
             ),
         )
 
-        val decision = RetryDecision(Duration.ZERO)
+        val plan = RetryPlan(Duration.ZERO)
 
         val listener = object : RetryListener {}
 
-        listener.onRetry(event, decision)
+        listener.onRetry(event, plan)
         listener.onSuccess(event)
         listener.onFailure(event)
     }
 
     @Test
     fun `null callbacks do nothing`() {
-        val event = RetryEvent(
+        val event = AttemptEvent(
             outcome = AttemptOutcome.Returned(1),
             context = RetryContext(
                 attempt = 2,
@@ -38,7 +38,7 @@ class RetryListenerTest {
             ),
         )
 
-        val decision = RetryDecision(Duration.ZERO)
+        val plan = RetryPlan(Duration.ZERO)
 
         val listener = RetryListener(
             onRetry = null,
@@ -46,7 +46,7 @@ class RetryListenerTest {
             onFailure = null,
         )
 
-        listener.onRetry(event, decision)
+        listener.onRetry(event, plan)
         listener.onSuccess(event)
         listener.onFailure(event)
     }

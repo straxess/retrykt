@@ -7,9 +7,9 @@ import io.github.straxess.retrykt.internal.checkFiniteNonNegative
 import io.github.straxess.retrykt.internal.sleep
 import io.github.straxess.retrykt.jitter.Jitter
 import io.github.straxess.retrykt.jitter.NoJitter
-import io.github.straxess.retrykt.listener.RetryDecision
-import io.github.straxess.retrykt.listener.RetryEvent
+import io.github.straxess.retrykt.listener.AttemptEvent
 import io.github.straxess.retrykt.listener.RetryListener
+import io.github.straxess.retrykt.listener.RetryPlan
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -24,7 +24,7 @@ import kotlin.time.Duration
  *
  * @throws IllegalArgumentException if [maxAttempts] is zero or negative.
  * @throws IllegalStateException if [backoff] or [jitter] returns a negative or infinite duration.
- * @throws RetryStoppedException if the last allowed result is still retryable.
+ * @throws RetryExhaustedException if the retry policy rejects the last allowed outcome.
  */
 public suspend fun <T> retry(
     maxAttempts: Int = Int.MAX_VALUE,
@@ -60,26 +60,26 @@ public suspend fun <T> retry(
 
         currentCoroutineContext().ensureActive()
 
-        val retryEvent = RetryEvent(outcome, retryContext)
+        val attemptEvent = AttemptEvent(outcome, retryContext)
 
         if (!retryOn.shouldRetry(outcome)) {
             return when (outcome) {
                 is AttemptOutcome.Returned -> {
-                    listener.onSuccess(retryEvent)
+                    listener.onSuccess(attemptEvent)
                     outcome.value
                 }
 
                 is AttemptOutcome.Thrown -> {
-                    listener.onFailure(retryEvent)
+                    listener.onFailure(attemptEvent)
                     throw outcome.throwable
                 }
             }
         }
 
         if (attempt == maxAttempts) {
-            listener.onFailure(retryEvent)
-            throw RetryStoppedException(
-                reason = RetryStoppedReason.MaxAttemptsReached(maxAttempts),
+            listener.onFailure(attemptEvent)
+            throw RetryExhaustedException(
+                reason = RetryExhaustionReason.MaxAttemptsReached(maxAttempts),
                 lastOutcome = outcome,
             )
         }
@@ -91,10 +91,10 @@ public suspend fun <T> retry(
         val nextAppliedDelay = jitter.apply(backoffDelay)
         checkFiniteNonNegative(nextAppliedDelay, "next applied delay")
 
-        val retryDecision = RetryDecision(nextAppliedDelay = nextAppliedDelay)
+        val retryPlan = RetryPlan(nextAppliedDelay = nextAppliedDelay)
 
         currentCoroutineContext().ensureActive()
-        listener.onRetry(retryEvent, retryDecision)
+        listener.onRetry(attemptEvent, retryPlan)
 
         delay(nextAppliedDelay)
 
@@ -112,7 +112,7 @@ public suspend fun <T> retry(
  *
  * @throws IllegalArgumentException if [maxAttempts] is zero or negative.
  * @throws IllegalStateException if [backoff] or [jitter] returns a negative or infinite duration.
- * @throws RetryStoppedException if the last allowed result is still retryable.
+ * @throws RetryExhaustedException if the retry policy rejects the last allowed outcome.
  */
 public fun <T> retryBlocking(
     maxAttempts: Int = Int.MAX_VALUE,
@@ -144,26 +144,26 @@ public fun <T> retryBlocking(
             AttemptOutcome.Thrown(t)
         }
 
-        val retryEvent = RetryEvent(outcome, retryContext)
+        val attemptEvent = AttemptEvent(outcome, retryContext)
 
         if (!retryOn.shouldRetry(outcome)) {
             return when (outcome) {
                 is AttemptOutcome.Returned -> {
-                    listener.onSuccess(retryEvent)
+                    listener.onSuccess(attemptEvent)
                     outcome.value
                 }
 
                 is AttemptOutcome.Thrown -> {
-                    listener.onFailure(retryEvent)
+                    listener.onFailure(attemptEvent)
                     throw outcome.throwable
                 }
             }
         }
 
         if (attempt == maxAttempts) {
-            listener.onFailure(retryEvent)
-            throw RetryStoppedException(
-                reason = RetryStoppedReason.MaxAttemptsReached(maxAttempts),
+            listener.onFailure(attemptEvent)
+            throw RetryExhaustedException(
+                reason = RetryExhaustionReason.MaxAttemptsReached(maxAttempts),
                 lastOutcome = outcome,
             )
         }
@@ -175,9 +175,9 @@ public fun <T> retryBlocking(
         val nextAppliedDelay = jitter.apply(backoffDelay)
         checkFiniteNonNegative(nextAppliedDelay, "next applied delay")
 
-        val retryDecision = RetryDecision(nextAppliedDelay = nextAppliedDelay)
+        val retryPlan = RetryPlan(nextAppliedDelay = nextAppliedDelay)
 
-        listener.onRetry(retryEvent, retryDecision)
+        listener.onRetry(attemptEvent, retryPlan)
 
         sleep(nextAppliedDelay)
 

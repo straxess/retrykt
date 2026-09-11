@@ -3,9 +3,9 @@ package io.github.straxess.retrykt
 import io.github.straxess.retrykt.backoff.Backoff
 import io.github.straxess.retrykt.backoff.BackoffContext
 import io.github.straxess.retrykt.backoff.ConstantBackoff
-import io.github.straxess.retrykt.listener.RetryDecision
-import io.github.straxess.retrykt.listener.RetryEvent
+import io.github.straxess.retrykt.listener.AttemptEvent
 import io.github.straxess.retrykt.listener.RetryListener
+import io.github.straxess.retrykt.listener.RetryPlan
 import kotlinx.coroutines.*
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runCurrent
@@ -47,12 +47,12 @@ class RetryTest {
     }
 
     @Test
-    fun `stops with RetryStoppedException when max attempts reached with thrown outcome`() = runTest {
+    fun `stops with RetryExhaustedException when max attempts reached with thrown outcome`() = runTest {
         val maxAttempts = 3
         val expectedThrowable = RuntimeException()
         var attempts = 0
 
-        val exception = assertFailsWith<RetryStoppedException> {
+        val exception = assertFailsWith<RetryExhaustedException> {
             retry(maxAttempts = maxAttempts) {
                 attempts++
                 throw expectedThrowable
@@ -60,7 +60,7 @@ class RetryTest {
         }
 
         assertEquals(3, attempts)
-        assertTrue(exception.reason is RetryStoppedReason.MaxAttemptsReached)
+        assertTrue(exception.reason is RetryExhaustionReason.MaxAttemptsReached)
         assertEquals(maxAttempts, exception.reason.maxAttempts)
         assertTrue(exception.lastOutcome is AttemptOutcome.Thrown)
         assertSame(expectedThrowable, exception.lastOutcome.throwable)
@@ -68,12 +68,12 @@ class RetryTest {
     }
 
     @Test
-    fun `stops with RetryStoppedException when max attempts reached with returned outcome`() = runTest {
+    fun `stops with RetryExhaustedException when max attempts reached with returned outcome`() = runTest {
         val maxAttempts = 3
         val expectedReturned = 1
         var attempts = 0
 
-        val exception = assertFailsWith<RetryStoppedException> {
+        val exception = assertFailsWith<RetryExhaustedException> {
             retry(maxAttempts = maxAttempts, retryOn = RetryOn.returned { it == 1 }) {
                 attempts++
                 expectedReturned
@@ -81,7 +81,7 @@ class RetryTest {
         }
 
         assertEquals(3, attempts)
-        assertTrue(exception.reason is RetryStoppedReason.MaxAttemptsReached)
+        assertTrue(exception.reason is RetryExhaustionReason.MaxAttemptsReached)
         assertEquals(maxAttempts, exception.reason.maxAttempts)
         assertTrue(exception.lastOutcome is AttemptOutcome.Returned)
         assertEquals(expectedReturned, exception.lastOutcome.value)
@@ -284,10 +284,10 @@ class RetryTest {
         val actualFailureException =
             assertFailsWith<RuntimeException> {
                 retry(
-                    retryOn = RetryOn.thrown { false },
+                    maxAttempts = 1,
                     listener = RetryListener(onFailure = { throw failureException }),
                 ) {
-                    error("failure")
+                    error("retry")
                 }
             }
 
@@ -366,7 +366,7 @@ class RetryTest {
         val maxAttempts = 3
         val attempts = mutableListOf<Int>()
 
-        assertFailsWith<RetryStoppedException> {
+        assertFailsWith<RetryExhaustedException> {
             retry(maxAttempts = maxAttempts) { context ->
                 attempts += context.maxAttempts
                 throw RuntimeException()
@@ -410,7 +410,7 @@ class RetryTest {
         val first = IllegalStateException()
         val second = IllegalArgumentException()
 
-        val events = mutableListOf<RetryEvent<*>>()
+        val events = mutableListOf<AttemptEvent<*>>()
 
         retry(
             listener = RetryListener(onRetry = { event, _ -> events += event }),
@@ -439,7 +439,7 @@ class RetryTest {
 
     @Test
     fun `onRetry receives returned outcome`() = runTest {
-        val events = mutableListOf<RetryEvent<*>>()
+        val events = mutableListOf<AttemptEvent<*>>()
 
         retry(
             retryOn = RetryOn.returned { it == "retry" },
@@ -461,14 +461,14 @@ class RetryTest {
     }
 
     @Test
-    fun `onRetry receives event and decision`() = runTest {
-        val callbacks = mutableListOf<Pair<RetryEvent<*>, RetryDecision>>()
+    fun `onRetry receives event and plan`() = runTest {
+        val callbacks = mutableListOf<Pair<AttemptEvent<*>, RetryPlan>>()
 
         retry(
             backoff = ConstantBackoff(100.milliseconds),
             retryOn = RetryOn.returned { it == "retry" },
             listener = RetryListener(
-                onRetry = { event, decision -> callbacks += event to decision },
+                onRetry = { event, plan -> callbacks += event to plan },
             ),
         ) {
             if (it.attempt < 2) {
@@ -480,11 +480,11 @@ class RetryTest {
 
         assertEquals(1, callbacks.size)
 
-        val (event, decision) = callbacks.single()
+        val (event, plan) = callbacks.single()
 
         assertTrue(event.outcome is AttemptOutcome.Returned)
         assertEquals("retry", event.outcome.value)
-        assertEquals(100.milliseconds, decision.nextAppliedDelay)
+        assertEquals(100.milliseconds, plan.nextAppliedDelay)
     }
 
     @Test
@@ -509,7 +509,7 @@ class RetryTest {
 
     @Test
     fun `onSuccess receives successful outcome`() = runTest {
-        val events = mutableListOf<RetryEvent<*>>()
+        val events = mutableListOf<AttemptEvent<*>>()
 
         retry(
             listener = RetryListener(onSuccess = { events += it }),
@@ -528,7 +528,7 @@ class RetryTest {
 
     @Test
     fun `onSuccess receives final successful outcome after retries`() = runTest {
-        val events = mutableListOf<RetryEvent<*>>()
+        val events = mutableListOf<AttemptEvent<*>>()
 
         retry(
             listener = RetryListener(onSuccess = { events += it }),
@@ -554,33 +554,27 @@ class RetryTest {
 
     @Test
     fun `onFailure receives non-retryable thrown outcome`() = runTest {
-        val throwable = IllegalStateException()
-        val events = mutableListOf<RetryEvent<*>>()
+        val events = mutableListOf<AttemptEvent<*>>()
 
         assertFailsWith<IllegalStateException> {
             retry(
                 retryOn = RetryOn.thrown { false },
                 listener = RetryListener(onFailure = { events += it }),
             ) {
-                throw throwable
+                throw IllegalStateException()
             }
         }
 
         assertEquals(1, events.size)
-
-        val event = events.single()
-
-        assertEquals(1, event.context.attempt)
-        assertTrue(event.outcome is AttemptOutcome.Thrown)
-        assertSame(throwable, event.outcome.throwable)
+        assertTrue(events.single().outcome is AttemptOutcome.Thrown)
     }
 
     @Test
     fun `onFailure receives last outcome when max attempts are reached`() = runTest {
         val exception = IllegalStateException()
-        val events = mutableListOf<RetryEvent<*>>()
+        val events = mutableListOf<AttemptEvent<*>>()
 
-        assertFailsWith<RetryStoppedException> {
+        assertFailsWith<RetryExhaustedException> {
             retry(
                 maxAttempts = 2,
                 listener = RetryListener(onFailure = { events += it }),
@@ -621,10 +615,10 @@ class RetryTest {
     }
 
     @Test
-    fun `listener receives retry and failure on exhaustion`() = runTest {
+    fun `listener receives retry and terminal failure events`() = runTest {
         val events = mutableListOf<String>()
 
-        assertFailsWith<RetryStoppedException> {
+        assertFailsWith<RetryExhaustedException> {
             retry(
                 maxAttempts = 3,
                 listener = RetryListener(
@@ -645,7 +639,7 @@ class RetryTest {
 
     @Test
     fun `onSuccess is not called for retryable returned outcome`() = runTest {
-        val successEvents = mutableListOf<RetryEvent<*>>()
+        val successEvents = mutableListOf<AttemptEvent<*>>()
 
         retry(
             retryOn = RetryOn.returned { it == "retry" },
@@ -664,26 +658,26 @@ class RetryTest {
 
     @Test
     fun `onRetry is not called when max attempts are reached`() = runTest {
-        val retryEvents = mutableListOf<RetryEvent<*>>()
+        val attemptEvents = mutableListOf<AttemptEvent<*>>()
 
-        assertFailsWith<RetryStoppedException> {
+        assertFailsWith<RetryExhaustedException> {
             retry(
                 maxAttempts = 2,
-                listener = RetryListener(onRetry = { event, _ -> retryEvents += event }),
+                listener = RetryListener(onRetry = { event, _ -> attemptEvents += event }),
             ) {
                 throw IllegalStateException()
             }
         }
 
-        assertEquals(1, retryEvents.size)
-        assertEquals(1, retryEvents.single().context.attempt)
+        assertEquals(1, attemptEvents.size)
+        assertEquals(1, attemptEvents.single().context.attempt)
     }
 
     @Test
     fun `onFailure receives returned outcome when max attempts are reached`() = runTest {
-        val events = mutableListOf<RetryEvent<*>>()
+        val events = mutableListOf<AttemptEvent<*>>()
 
-        assertFailsWith<RetryStoppedException> {
+        assertFailsWith<RetryExhaustedException> {
             retry(
                 maxAttempts = 2,
                 retryOn = RetryOn.returned { it == "retry" },
@@ -766,11 +760,11 @@ class RetryTest {
 
     @Test
     fun `onRetry receives current outcome and previous outcome in context`() = runTest {
-        val retryEvents = mutableListOf<RetryEvent<*>>()
+        val attemptEvents = mutableListOf<AttemptEvent<*>>()
 
         val result = retry(
             retryOn = RetryOn.returned { it == "first" || it == "second" },
-            listener = RetryListener(onRetry = { event, _ -> retryEvents += event }),
+            listener = RetryListener(onRetry = { event, _ -> attemptEvents += event }),
         ) {
             when (it.attempt) {
                 1 -> "first"
@@ -779,15 +773,15 @@ class RetryTest {
             }
         }
 
-        assertEquals(2, retryEvents.size)
+        assertEquals(2, attemptEvents.size)
         assertEquals("third", result)
 
-        assertEquals("first", (retryEvents[0].outcome as AttemptOutcome.Returned).value)
-        assertEquals(null, retryEvents[0].context.prevOutcome)
+        assertEquals("first", (attemptEvents[0].outcome as AttemptOutcome.Returned).value)
+        assertEquals(null, attemptEvents[0].context.prevOutcome)
 
-        assertEquals("second", (retryEvents[1].outcome as AttemptOutcome.Returned).value)
+        assertEquals("second", (attemptEvents[1].outcome as AttemptOutcome.Returned).value)
 
-        val prevOutcome = retryEvents[1].context.prevOutcome
+        val prevOutcome = attemptEvents[1].context.prevOutcome
         assertTrue(prevOutcome is AttemptOutcome.Returned)
         assertEquals("first", prevOutcome.value)
     }

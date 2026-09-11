@@ -1,9 +1,9 @@
 package io.github.straxess.retrykt
 
 /**
- * The reason why RetryKt stopped retrying.
+ * The reason why RetryKt exhausted the retry process.
  */
-public sealed interface RetryStoppedReason {
+public sealed interface RetryExhaustionReason {
 
     /**
      * Returns a description for logs or error messages.
@@ -17,7 +17,7 @@ public sealed interface RetryStoppedReason {
      */
     public class MaxAttemptsReached internal constructor(
         public val maxAttempts: Int,
-    ) : RetryStoppedReason {
-        override fun description(): String = "Retry stopped: maximum attempts ($maxAttempts) reached."
+    ) : RetryExhaustionReason {
+        override fun description(): String = "Retry exhausted: maximum attempts ($maxAttempts) reached."
     }
 }
