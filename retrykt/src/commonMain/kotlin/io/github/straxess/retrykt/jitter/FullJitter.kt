@@ -6,15 +6,18 @@ import kotlin.time.Duration
 
 /**
  * Returns a random delay from zero to [backoffDelay]. Duration rounding can include the upper bound.
+ *
+ * This jitter reuses [random] on every call. If the jitter is shared between concurrent operations, [random] must
+ * support concurrent calls.
  */
-public object FullJitter : Jitter {
+public class FullJitter(
+    private val random: Random = Random.Default,
+) : Jitter {
 
     /**
      * @throws IllegalArgumentException if [backoffDelay] is negative or infinite.
      */
-    override fun apply(backoffDelay: Duration): Duration = apply(backoffDelay, Random.Default)
-
-    internal fun apply(backoffDelay: Duration, random: Random): Duration {
+    override fun apply(backoffDelay: Duration): Duration {
         requireFiniteNonNegative(backoffDelay, "backoffDelay")
 
         if (backoffDelay == Duration.ZERO) {

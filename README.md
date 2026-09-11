@@ -25,7 +25,7 @@ val user = retry(
     maxAttempts = 5,
     retryOn = RetryOn.thrown { it is IOException },
     backoff = ExponentialBackoff(firstDelay = 200.milliseconds, maxDelay = 10.seconds),
-    jitter = FullJitter,
+    jitter = FullJitter(),
 ) {
     api.getUser()
 }
@@ -196,7 +196,7 @@ Example:
 ```kotlin
 retry(
     backoff = ExponentialBackoff(firstDelay = 200.milliseconds, maxDelay = 10.seconds),
-    jitter = FullJitter,
+    jitter = FullJitter(),
 ) {
     request()
 }
@@ -204,6 +204,16 @@ retry(
 
 Duration rounding means a random range can include its upper bound. For `AdditiveJitter`, `backoff delay + maxJitter`
 must stay finite.
+
+Randomized strategies use `Random.Default` by default. It is suitable for retry delays but not for cryptographic use.
+Pass another `Random` implementation when needed:
+
+```kotlin
+val jitter = FullJitter(random = applicationRandom)
+```
+
+The strategy reuses the supplied `Random`. Use separate strategy instances for independent random sequences. A shared
+`Random` must support concurrent calls.
 
 ### Custom strategies
 

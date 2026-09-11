@@ -13,12 +13,15 @@ import kotlin.time.Duration
  * as:
  * `random(firstDelay, min(maxDelay, prevAppliedDelay * 3))`.
  * Both configured delays must be finite and `0 <= firstDelay <= maxDelay`.
+ * This backoff reuses [random] on every call. If the backoff is shared between concurrent operations, [random] must
+ * support concurrent calls.
  *
  * @throws IllegalArgumentException if a delay is negative or infinite, or [firstDelay] is greater than [maxDelay].
  */
 public class DecorrelatedBackoff(
     public val firstDelay: Duration,
     public val maxDelay: Duration,
+    private val random: Random = Random.Default,
 ) : Backoff {
 
     init {
@@ -30,9 +33,7 @@ public class DecorrelatedBackoff(
         }
     }
 
-    override fun calculateDelay(context: BackoffContext): Duration = calculateDelay(context, Random.Default)
-
-    internal fun calculateDelay(context: BackoffContext, random: Random): Duration {
+    override fun calculateDelay(context: BackoffContext): Duration {
         val prevAppliedDelay = context.prevAppliedDelay ?: return firstDelay
         val upperBound = if (prevAppliedDelay > maxDelay / 3) maxDelay else prevAppliedDelay * 3
 

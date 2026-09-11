@@ -14,13 +14,12 @@ class AdditiveJitterTest {
     @Test
     fun `returns delays in expected range and applies jitter`() {
         val maxJitter = 100.milliseconds
-        val jitter = AdditiveJitter(maxJitter)
+        val jitter = AdditiveJitter(maxJitter, random = Random(0))
         val backoffDelay = 10.seconds
-        val random = Random(0)
 
         var hasJitter = false
         repeat(1_000) {
-            val actual = jitter.apply(backoffDelay, random)
+            val actual = jitter.apply(backoffDelay)
 
             assertTrue(actual >= backoffDelay)
             assertTrue(actual <= (backoffDelay + maxJitter))

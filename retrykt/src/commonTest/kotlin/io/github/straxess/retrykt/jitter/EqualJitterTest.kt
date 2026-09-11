@@ -15,7 +15,7 @@ class EqualJitterTest {
     fun `returns zero for zero backoff delay`() {
         assertEquals(
             Duration.ZERO,
-            EqualJitter.apply(Duration.ZERO),
+            EqualJitter().apply(Duration.ZERO),
         )
     }
 
@@ -23,10 +23,10 @@ class EqualJitterTest {
     fun `returns delay in equal jitter range`() {
         val backoffDelay = 10.milliseconds
         val minimumDelay = backoffDelay / 2
-        val random = Random(0)
+        val jitter = EqualJitter(random = Random(0))
 
         repeat(1_000) {
-            val actual = EqualJitter.apply(backoffDelay, random)
+            val actual = jitter.apply(backoffDelay)
 
             assertTrue(actual >= minimumDelay)
             assertTrue(actual <= backoffDelay)
@@ -36,11 +36,11 @@ class EqualJitterTest {
     @Test
     fun `returns randomized delay`() {
         val backoffDelay = 100.milliseconds
-        val random = Random(0)
+        val jitter = EqualJitter(random = Random(0))
 
         val delays = buildSet {
             repeat(1_000) {
-                add(EqualJitter.apply(backoffDelay, random))
+                add(jitter.apply(backoffDelay))
             }
         }
 
@@ -50,24 +50,24 @@ class EqualJitterTest {
     @Test
     fun `throws IllegalArgumentException for negative backoff delay`() {
         assertFailsWith<IllegalArgumentException> {
-            EqualJitter.apply((-100).milliseconds)
+            EqualJitter().apply((-100).milliseconds)
         }
     }
 
     @Test
     fun `throws IllegalArgumentException for infinite backoff delay`() {
         assertFailsWith<IllegalArgumentException> {
-            EqualJitter.apply(Duration.INFINITE)
+            EqualJitter().apply(Duration.INFINITE)
         }
     }
 
     @Test
     fun `handles sub-divisible backoff delays`() {
-        assertEquals(Duration.ZERO, EqualJitter.apply(1.nanoseconds))
-        val random = Random(0)
+        assertEquals(Duration.ZERO, EqualJitter().apply(1.nanoseconds))
+        val jitter = EqualJitter(random = Random(0))
 
         repeat(1_000) {
-            val actual = EqualJitter.apply(2.nanoseconds, random)
+            val actual = jitter.apply(2.nanoseconds)
 
             assertTrue(actual >= 1.nanoseconds)
             assertTrue(actual <= 2.nanoseconds)

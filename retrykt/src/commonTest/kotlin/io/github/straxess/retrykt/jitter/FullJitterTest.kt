@@ -15,17 +15,17 @@ class FullJitterTest {
     fun `returns zero for zero backoff delay`() {
         assertEquals(
             Duration.ZERO,
-            FullJitter.apply(Duration.ZERO),
+            FullJitter().apply(Duration.ZERO),
         )
     }
 
     @Test
     fun `returns delay in range`() {
         val backoffDelay = 100.milliseconds
-        val random = Random(0)
+        val jitter = FullJitter(random = Random(0))
 
         repeat(1_000) {
-            val actual = FullJitter.apply(backoffDelay, random)
+            val actual = jitter.apply(backoffDelay)
 
             assertTrue(actual >= Duration.ZERO)
             assertTrue(actual <= backoffDelay)
@@ -35,11 +35,11 @@ class FullJitterTest {
     @Test
     fun `returns randomized delay`() {
         val backoffDelay = 100.milliseconds
-        val random = Random(0)
+        val jitter = FullJitter(random = Random(0))
 
         val delays = buildSet {
             repeat(1_000) {
-                add(FullJitter.apply(backoffDelay, random))
+                add(jitter.apply(backoffDelay))
             }
         }
 
@@ -49,23 +49,23 @@ class FullJitterTest {
     @Test
     fun `throws IllegalArgumentException for negative backoff delay`() {
         assertFailsWith<IllegalArgumentException> {
-            FullJitter.apply((-100).milliseconds)
+            FullJitter().apply((-100).milliseconds)
         }
     }
 
     @Test
     fun `throws IllegalArgumentException for infinite backoff delay`() {
         assertFailsWith<IllegalArgumentException> {
-            FullJitter.apply(Duration.INFINITE)
+            FullJitter().apply(Duration.INFINITE)
         }
     }
 
     @Test
     fun `keeps minimum representable delay within bounds`() {
-        val random = Random(0)
+        val jitter = FullJitter(random = Random(0))
 
         repeat(1_000) {
-            val actual = FullJitter.apply(1.nanoseconds, random)
+            val actual = jitter.apply(1.nanoseconds)
 
             assertTrue(actual >= Duration.ZERO)
             assertTrue(actual <= 1.nanoseconds)
