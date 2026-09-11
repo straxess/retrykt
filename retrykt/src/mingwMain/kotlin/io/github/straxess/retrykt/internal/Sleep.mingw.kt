@@ -4,14 +4,16 @@ import platform.windows.Sleep
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
+internal const val MAX_FINITE_SLEEP_MILLIS: Long = 0xFFFF_FFFEL
+
 /**
  * Rounds a positive [duration] below 1 ms up to 1 ms because Windows `Sleep(0)` may not wait.
  */
 internal actual fun sleepInternal(duration: Duration) {
     var remaining = duration
-    val maxChunk = UInt.MAX_VALUE.toLong().milliseconds
+    val maxChunk = MAX_FINITE_SLEEP_MILLIS.milliseconds
 
-    // Windows Sleep takes a UInt millisecond count, so long waits need several calls.
+    // UInt.MAX_VALUE means INFINITE to Windows Sleep, so finite long waits need smaller chunks.
     while (remaining > Duration.ZERO) {
         val chunk = remaining.coerceAtMost(maxChunk)
         val millis = chunk.inWholeMilliseconds.coerceAtLeast(1)
