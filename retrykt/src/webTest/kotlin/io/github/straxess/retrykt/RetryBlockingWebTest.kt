@@ -4,9 +4,13 @@ import io.github.straxess.retrykt.backoff.Backoff
 import io.github.straxess.retrykt.backoff.BackoffContext
 import io.github.straxess.retrykt.backoff.ConstantBackoff
 import io.github.straxess.retrykt.backoff.NoBackoff
+import io.github.straxess.retrykt.listener.AttemptEvent
+import io.github.straxess.retrykt.listener.RetryListener
+import io.github.straxess.retrykt.listener.RetryPlan
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -41,16 +45,16 @@ class RetryBlockingWebTest {
     }
 
     @Test
-    fun `jitter receives raw delay from backoff`() {
-        val rawDelays = mutableListOf<Duration>()
+    fun `jitter receives backoff delay from backoff`() {
+        val backoffDelays = mutableListOf<Duration>()
 
         retryBlocking(
             maxAttempts = 2,
             backoff = object : Backoff {
-                override fun nextDelay(context: BackoffContext) = 0.milliseconds
+                override fun calculateDelay(context: BackoffContext) = 0.milliseconds
             },
             jitter = {
-                rawDelays += it
+                backoffDelays += it
                 it
             },
         ) {
@@ -59,17 +63,17 @@ class RetryBlockingWebTest {
             }
         }
 
-        assertEquals(listOf(0.milliseconds), rawDelays)
+        assertEquals(listOf(0.milliseconds), backoffDelays)
     }
 
     @Test
-    fun `backoff receives last applied delay`() {
-        val lastAppliedDelays = mutableListOf<Duration?>()
+    fun `backoff receives prev applied delay`() {
+        val prevAppliedDelays = mutableListOf<Duration?>()
 
         retryBlocking(
             backoff = object : Backoff {
-                override fun nextDelay(context: BackoffContext): Duration {
-                    lastAppliedDelays += context.lastAppliedDelay
+                override fun calculateDelay(context: BackoffContext): Duration {
+                    prevAppliedDelays += context.prevAppliedDelay
                     return 0.milliseconds * context.attempt
                 }
             },
@@ -80,6 +84,33 @@ class RetryBlockingWebTest {
             }
         }
 
-        assertEquals(listOf(null, 0.milliseconds, 0.milliseconds), lastAppliedDelays)
+        assertEquals(listOf(null, 0.milliseconds, 0.milliseconds), prevAppliedDelays)
+    }
+
+    @Test
+    fun `onRetry receives event and plan`() {
+        val callbacks = mutableListOf<Pair<AttemptEvent<*>, RetryPlan>>()
+
+        retryBlocking(
+            backoff = ConstantBackoff(0.milliseconds),
+            retryOn = RetryOn.returned { it == "retry" },
+            listener = RetryListener(
+                onRetry = { event, plan -> callbacks += event to plan },
+            ),
+        ) {
+            if (it.attempt < 2) {
+                "retry"
+            } else {
+                "success"
+            }
+        }
+
+        assertEquals(1, callbacks.size)
+
+        val (event, plan) = callbacks.single()
+
+        assertTrue(event.outcome is AttemptOutcome.Returned)
+        assertEquals("retry", event.outcome.value)
+        assertEquals(0.milliseconds, plan.nextAppliedDelay)
     }
 }

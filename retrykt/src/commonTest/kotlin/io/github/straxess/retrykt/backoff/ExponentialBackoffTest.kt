@@ -3,18 +3,86 @@ package io.github.straxess.retrykt.backoff
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 class ExponentialBackoffTest {
 
     @Test
-    fun `returns exponential delay`() {
-        val backoff = ExponentialBackoff(10.seconds, 2.0)
+    fun `returns zero when first delay is zero`() {
+        val backoff =
+            ExponentialBackoff(
+                firstDelay = Duration.ZERO,
+                maxDelay = Duration.ZERO,
+            )
 
-        val firstDelay = backoff.nextDelay(BackoffContext(1, null))
-        val secondDelay = backoff.nextDelay(BackoffContext(2, null))
-        val thirdDelay = backoff.nextDelay(BackoffContext(3, null))
+        val actual =
+            backoff.calculateDelay(
+                BackoffContext(
+                    attempt = Int.MAX_VALUE,
+                    prevAppliedDelay = null,
+                ),
+            )
+
+        assertEquals(Duration.ZERO, actual)
+    }
+
+    @Test
+    fun `returns max delay when initial and max delay are equal`() {
+        val backoff = ExponentialBackoff(firstDelay = 1.seconds, maxDelay = 1.seconds)
+        val backoffContext = BackoffContext(attempt = Int.MAX_VALUE, prevAppliedDelay = null)
+
+        val actual = backoff.calculateDelay(backoffContext)
+
+        assertEquals(1.seconds, actual)
+    }
+
+    @Test
+    fun `does not overflow for max attempt`() {
+        val maxDelay = 1.hours
+        val backoff = ExponentialBackoff(firstDelay = 1.milliseconds, multiplier = 2.0, maxDelay = maxDelay)
+        val backoffContext = BackoffContext(attempt = Int.MAX_VALUE, prevAppliedDelay = null)
+
+        val actual = backoff.calculateDelay(backoffContext)
+
+        assertEquals(maxDelay, actual)
+    }
+
+    @Test
+    fun `does not overflow to infinite delay`() {
+        val maxDelay = ((Long.MAX_VALUE / 2) - 1).milliseconds
+        assertTrue(maxDelay.isFinite())
+        assertTrue((maxDelay * 2).isInfinite())
+
+        val firstDelay = maxDelay - 1.milliseconds
+        val backoff = ExponentialBackoff(firstDelay = firstDelay, multiplier = 2.0, maxDelay = maxDelay)
+        val backoffContext = BackoffContext(attempt = 2, prevAppliedDelay = null)
+
+        val actual = backoff.calculateDelay(backoffContext)
+
+        assertEquals(maxDelay, actual)
+    }
+
+    @Test
+    fun `returns constant delay when multiplier is one`() {
+        val backoff = ExponentialBackoff(firstDelay = 10.seconds, multiplier = 1.0, maxDelay = 20.seconds)
+
+        assertEquals(10.seconds, backoff.calculateDelay(BackoffContext(1, null)))
+        assertEquals(10.seconds, backoff.calculateDelay(BackoffContext(2, null)))
+        assertEquals(10.seconds, backoff.calculateDelay(BackoffContext(100, null)))
+    }
+
+    @Test
+    fun `calculates exponential delays`() {
+        val backoff = ExponentialBackoff(10.seconds, 1.days, 2.0)
+
+        val firstDelay = backoff.calculateDelay(BackoffContext(1, null))
+        val secondDelay = backoff.calculateDelay(BackoffContext(2, null))
+        val thirdDelay = backoff.calculateDelay(BackoffContext(3, null))
 
         assertEquals(10.seconds, firstDelay)
         assertEquals(20.seconds, secondDelay)
@@ -22,66 +90,103 @@ class ExponentialBackoffTest {
     }
 
     @Test
-    fun `ExponentialBackoff respects max delay`() {
-        val backoff = ExponentialBackoff(
-            initialDelay = 100.milliseconds,
-            multiplier = 2.0,
-            maxDelay = 500.milliseconds,
-        )
+    fun `calculates delays with fractional multiplier`() {
+        val backoff = ExponentialBackoff(firstDelay = 1.seconds, maxDelay = 10.seconds, multiplier = 1.5)
 
-        assertEquals(100.milliseconds, backoff.nextDelay(BackoffContext(1, null)))
-        assertEquals(200.milliseconds, backoff.nextDelay(BackoffContext(2, null)))
-        assertEquals(400.milliseconds, backoff.nextDelay(BackoffContext(3, null)))
-        assertEquals(500.milliseconds, backoff.nextDelay(BackoffContext(4, null)))
-        assertEquals(500.milliseconds, backoff.nextDelay(BackoffContext(5, null)))
+        assertEquals(1.seconds, backoff.calculateDelay(BackoffContext(1, null)))
+        assertEquals(1_500.milliseconds, backoff.calculateDelay(BackoffContext(2, null)))
+        assertEquals(2_250.milliseconds, backoff.calculateDelay(BackoffContext(3, null)))
     }
 
     @Test
-    fun `ExponentialBackoff throws IllegalArgumentException if initialDelay is less than 0`() {
+    fun `caps delay when multiplier power overflows`() {
+        val backoff = ExponentialBackoff(firstDelay = 1.seconds, maxDelay = 1.days, multiplier = Double.MAX_VALUE)
+
+        assertEquals(1.days, backoff.calculateDelay(BackoffContext(Int.MAX_VALUE, null)))
+    }
+
+    @Test
+    fun `respects max delay when exponential value reaches cap exactly`() {
+        val backoff = ExponentialBackoff(firstDelay = 1.seconds, multiplier = 2.0, maxDelay = 8.seconds)
+
+        assertEquals(1.seconds, backoff.calculateDelay(BackoffContext(1, null)))
+        assertEquals(2.seconds, backoff.calculateDelay(BackoffContext(2, null)))
+        assertEquals(4.seconds, backoff.calculateDelay(BackoffContext(3, null)))
+        assertEquals(8.seconds, backoff.calculateDelay(BackoffContext(4, null)))
+        assertEquals(8.seconds, backoff.calculateDelay(BackoffContext(5, null)))
+    }
+
+    @Test
+    fun `respects max delay between exponential values`() {
+        val backoff = ExponentialBackoff(firstDelay = 1.seconds, multiplier = 2.0, maxDelay = 5.seconds)
+
+        assertEquals(1.seconds, backoff.calculateDelay(BackoffContext(1, null)))
+        assertEquals(2.seconds, backoff.calculateDelay(BackoffContext(2, null)))
+        assertEquals(4.seconds, backoff.calculateDelay(BackoffContext(3, null)))
+        assertEquals(5.seconds, backoff.calculateDelay(BackoffContext(4, null)))
+        assertEquals(5.seconds, backoff.calculateDelay(BackoffContext(5, null)))
+    }
+
+    @Test
+    fun `throws IllegalArgumentException if firstDelay is less than 0`() {
         assertFailsWith<IllegalArgumentException> {
-            ExponentialBackoff((-10).seconds)
+            ExponentialBackoff((-10).seconds, maxDelay = 1.seconds)
         }
     }
 
     @Test
-    fun `ExponentialBackoff throws IllegalArgumentException if multiplier is less than 1`() {
+    fun `throws IllegalArgumentException for infinite first delay`() {
         assertFailsWith<IllegalArgumentException> {
-            ExponentialBackoff(10.seconds, 0.99)
+            ExponentialBackoff(firstDelay = Duration.INFINITE, maxDelay = 1.seconds)
         }
     }
 
     @Test
-    fun `ExponentialBackoff throws IllegalArgumentException if multiplier is negative infinity`() {
+    fun `throws IllegalArgumentException if multiplier is less than 1`() {
         assertFailsWith<IllegalArgumentException> {
-            ExponentialBackoff(10.seconds, Double.NEGATIVE_INFINITY)
+            ExponentialBackoff(10.seconds, 20.seconds, 0.99)
         }
     }
 
     @Test
-    fun `ExponentialBackoff throws IllegalArgumentException if multiplier is positive infinity`() {
+    fun `throws IllegalArgumentException if multiplier is negative infinity`() {
         assertFailsWith<IllegalArgumentException> {
-            ExponentialBackoff(10.seconds, Double.POSITIVE_INFINITY)
+            ExponentialBackoff(10.seconds, 20.seconds, Double.NEGATIVE_INFINITY)
         }
     }
 
     @Test
-    fun `ExponentialBackoff throws IllegalArgumentException if multiplier is NaN`() {
+    fun `throws IllegalArgumentException if multiplier is positive infinity`() {
         assertFailsWith<IllegalArgumentException> {
-            ExponentialBackoff(10.seconds, Double.NaN)
+            ExponentialBackoff(10.seconds, 20.seconds, Double.POSITIVE_INFINITY)
         }
     }
 
     @Test
-    fun `ExponentialBackoff throws IllegalArgumentException if maxDelay is less than 0`() {
+    fun `throws IllegalArgumentException if multiplier is NaN`() {
+        assertFailsWith<IllegalArgumentException> {
+            ExponentialBackoff(10.seconds, 20.seconds, Double.NaN)
+        }
+    }
+
+    @Test
+    fun `throws IllegalArgumentException if maxDelay is less than 0`() {
         assertFailsWith<IllegalArgumentException> {
             ExponentialBackoff(10.seconds, maxDelay = (-10).seconds)
         }
     }
 
     @Test
-    fun `throws IllegalArgumentException when max delay is less than initial delay`() {
+    fun `throws IllegalArgumentException for infinite max delay`() {
         assertFailsWith<IllegalArgumentException> {
-            ExponentialBackoff(initialDelay = 100.milliseconds, maxDelay = 99.milliseconds)
+            ExponentialBackoff(firstDelay = 1.seconds, maxDelay = Duration.INFINITE)
+        }
+    }
+
+    @Test
+    fun `throws IllegalArgumentException when max delay is less than first delay`() {
+        assertFailsWith<IllegalArgumentException> {
+            ExponentialBackoff(firstDelay = 100.milliseconds, maxDelay = 99.milliseconds)
         }
     }
 }

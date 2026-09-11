@@ -9,10 +9,10 @@ class NoJitterTest {
     @Test
     fun `returns an original delay`() {
         val jitter = NoJitter
-        val baseDelay = 10.seconds
+        val backoffDelay = 10.seconds
 
-        val actual = jitter.apply(baseDelay)
+        val actual = jitter.apply(backoffDelay)
 
-        assertEquals(baseDelay, actual)
+        assertEquals(backoffDelay, actual)
     }
 }

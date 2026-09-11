@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "io.github.straxess"
-version = "0.4.1"
+version = "0.5.0"
 
 kotlin {
     explicitApi()
@@ -21,7 +21,7 @@ kotlin {
             jvmTarget = JvmTarget.JVM_11
         }
     }
-    androidLibrary {
+    android {
         namespace = group.toString()
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
@@ -78,6 +78,7 @@ kotlin {
 }
 
 configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
+    // Keep ktlint aligned with IntelliJ IDEA's default Kotlin formatter to avoid formatter conflicts.
     additionalEditorconfig.set(
         mapOf(
             "ktlint_code_style" to "intellij_idea",
@@ -86,6 +87,19 @@ configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
     )
 }
 
+kover {
+    reports {
+        variant("jvm") {
+            verify {
+                rule("Minimum line coverage") {
+                    minBound(80)
+                }
+            }
+        }
+    }
+}
+
+// The standard build lifecycle depends on check, so `./gradlew build` also verifies ktlint, compilation, and tests.
 tasks.named("check") {
     dependsOn("ktlintCheck")
 }
@@ -119,6 +133,9 @@ mavenPublishing {
             developer {
                 id = "straxess"
                 name = "Andrey Afanasyev"
+                email = "strx741@gmail.com"
+                organization = "straxess"
+                organizationUrl = "https://github.com/straxess"
                 url = "https://github.com/straxess"
             }
         }

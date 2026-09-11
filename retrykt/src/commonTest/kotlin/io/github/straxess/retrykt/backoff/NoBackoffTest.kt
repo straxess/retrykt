@@ -10,8 +10,8 @@ class NoBackoffTest {
     fun `returns zero delay`() {
         val backoff = NoBackoff
 
-        val firstDelay = backoff.nextDelay(BackoffContext(1, null))
-        val secondDelay = backoff.nextDelay(BackoffContext(2, null))
+        val firstDelay = backoff.calculateDelay(BackoffContext(1, null))
+        val secondDelay = backoff.calculateDelay(BackoffContext(2, null))
 
         assertEquals(Duration.ZERO, firstDelay)
         assertEquals(Duration.ZERO, secondDelay)

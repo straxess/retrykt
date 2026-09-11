@@ -1,37 +1,41 @@
 package io.github.straxess.retrykt.backoff
 
+import io.github.straxess.retrykt.internal.requireFiniteNonNegative
 import kotlin.time.Duration
 
 /**
- * Increases delays according to the Fibonacci sequence.
+ * Increases the delay with the Fibonacci sequence.
  *
- * The first two delays are [initialDelay], followed by the sum of the two previous delays, capped at [maxDelay].
+ * The first attempt starts immediately. The first two retry delays equal [firstDelay]. Each later delay is the sum of
+ * the previous two, up to [maxDelay]. If [firstDelay] is zero, every delay is zero. Both configured delays must be
+ * finite and `0 <= firstDelay <= maxDelay`.
+ *
+ * @throws IllegalArgumentException if a delay is negative or infinite, or [firstDelay] is greater than [maxDelay].
  */
 public class FibonacciBackoff(
-    public val initialDelay: Duration,
-    public val maxDelay: Duration = Duration.INFINITE,
+    public val firstDelay: Duration,
+    public val maxDelay: Duration,
 ) : Backoff {
 
     init {
-        require(initialDelay >= Duration.ZERO) {
-            "initialDelay must not be negative."
-        }
+        requireFiniteNonNegative(firstDelay, "firstDelay")
+        requireFiniteNonNegative(maxDelay, "maxDelay")
 
-        require(maxDelay >= Duration.ZERO) {
-            "maxDelay must not be negative."
-        }
-
-        require(maxDelay >= initialDelay) {
-            "maxDelay must not be less than initialDelay."
+        require(maxDelay >= firstDelay) {
+            "maxDelay must not be less than firstDelay."
         }
     }
 
-    override fun nextDelay(context: BackoffContext): Duration {
+    override fun calculateDelay(context: BackoffContext): Duration {
+        if (firstDelay == Duration.ZERO) {
+            return Duration.ZERO
+        }
+
         var prevDelay = Duration.ZERO
-        var delay = initialDelay
+        var delay = firstDelay
 
         repeat(context.attempt - 1) {
-            if (delay > maxDelay - prevDelay) {
+            if (delay >= maxDelay - prevDelay) {
                 return maxDelay
             }
 
@@ -40,8 +44,6 @@ public class FibonacciBackoff(
             prevDelay = intermediate
         }
 
-        val cappedDelay = delay.coerceAtMost(maxDelay)
-
-        return cappedDelay
+        return delay
     }
 }

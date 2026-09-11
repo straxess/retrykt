@@ -1,7 +1,10 @@
-package io.github.straxess.retrykt
+package io.github.straxess.retrykt.listener
+
+import io.github.straxess.retrykt.AttemptOutcome
+import io.github.straxess.retrykt.RetryContext
 
 /**
- * Describes the result of a completed task attempt and its context.
+ * The outcome and context of a completed attempt.
  *
  * ```
  * Attempt ──> outcome ──┬──> onSuccess
@@ -9,16 +12,16 @@ package io.github.straxess.retrykt
  *                       └──> onRetry
  *                              │
  *                              ▼
- *                         RetryEvent
+ *                         AttemptEvent
  *                         ├─ outcome (current attempt)
  *                         └─ context
  *                            └─ prevOutcome (previous attempt)
  * ```
  *
- * @param [outcome] result of the current attempt.
- * @param [context] context in which the attempt was executed.
+ * @param outcome The completed attempt's outcome.
+ * @param context The context used for that attempt.
  */
-public class RetryEvent<T> internal constructor(
+public class AttemptEvent<T> internal constructor(
     public val outcome: AttemptOutcome<T>,
     public val context: RetryContext<T>,
 )

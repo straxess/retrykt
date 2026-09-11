@@ -1,22 +1,29 @@
 package io.github.straxess.retrykt.jitter
 
+import io.github.straxess.retrykt.internal.requireFiniteNonNegative
 import kotlin.random.Random
 import kotlin.time.Duration
 
 /**
- * AWS-style full jitter: returns a random delay in the range `[0, rawDelay)`.
+ * Returns a random delay from zero to [backoffDelay]. Duration rounding can include the upper bound.
+ *
+ * This jitter reuses [random] on every call. If the jitter is shared between concurrent operations, [random] must
+ * support concurrent calls.
  */
-public object FullJitter : Jitter {
+public class FullJitter(
+    private val random: Random = Random.Default,
+) : Jitter {
 
-    override fun apply(rawDelay: Duration): Duration {
-        require(rawDelay >= Duration.ZERO) {
-            "rawDelay must be non-negative."
-        }
+    /**
+     * @throws IllegalArgumentException if [backoffDelay] is negative or infinite.
+     */
+    override fun apply(backoffDelay: Duration): Duration {
+        requireFiniteNonNegative(backoffDelay, "backoffDelay")
 
-        if (rawDelay == Duration.ZERO) {
+        if (backoffDelay == Duration.ZERO) {
             return Duration.ZERO
         }
 
-        return rawDelay * Random.nextDouble()
+        return backoffDelay * random.nextDouble()
     }
 }

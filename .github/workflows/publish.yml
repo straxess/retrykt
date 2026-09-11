@@ -8,8 +8,13 @@ permissions:
   contents: read
 
 jobs:
+  verify:
+    name: Verify release
+    uses: ./.github/workflows/gradle.yml
+
   publish:
     name: Publish release
+    needs: verify
     runs-on: macos-latest
 
     steps:

@@ -1,25 +1,32 @@
 package io.github.straxess.retrykt.jitter
 
+import io.github.straxess.retrykt.internal.requireFiniteNonNegative
 import kotlin.random.Random
 import kotlin.time.Duration
 
 /**
- * AWS-style equal jitter: keeps half the delay and randomizes the other half.
- * The result is in the range `[rawDelay / 2, rawDelay)`.
+ * Keeps half the backoff delay and randomizes the other half.
+ *
+ * The result is between `backoffDelay / 2` and [backoffDelay]. Duration rounding can include the upper bound.
+ * This jitter reuses [random] on every call. If the jitter is shared between concurrent operations, [random] must
+ * support concurrent calls.
  */
-public object EqualJitter : Jitter {
+public class EqualJitter(
+    private val random: Random = Random.Default,
+) : Jitter {
 
-    override fun apply(rawDelay: Duration): Duration {
-        require(rawDelay >= Duration.ZERO) {
-            "rawDelay must be non-negative."
-        }
+    /**
+     * @throws IllegalArgumentException if [backoffDelay] is negative or infinite.
+     */
+    override fun apply(backoffDelay: Duration): Duration {
+        requireFiniteNonNegative(backoffDelay, "backoffDelay")
 
-        if (rawDelay == Duration.ZERO) {
+        if (backoffDelay == Duration.ZERO) {
             return Duration.ZERO
         }
 
-        val half = rawDelay / 2
+        val half = backoffDelay / 2
 
-        return half + half * Random.nextDouble()
+        return half + half * random.nextDouble()
     }
 }

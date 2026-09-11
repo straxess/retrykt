@@ -2,14 +2,14 @@ package io.github.straxess.retrykt.listener
 
 import io.github.straxess.retrykt.AttemptOutcome
 import io.github.straxess.retrykt.RetryContext
-import io.github.straxess.retrykt.RetryEvent
 import kotlin.test.Test
+import kotlin.time.Duration
 
 class RetryListenerTest {
 
     @Test
     fun `default callbacks do nothing`() {
-        val event = RetryEvent(
+        val event = AttemptEvent(
             outcome = AttemptOutcome.Returned(1),
             context = RetryContext(
                 attempt = 2,
@@ -18,16 +18,18 @@ class RetryListenerTest {
             ),
         )
 
+        val plan = RetryPlan(Duration.ZERO)
+
         val listener = object : RetryListener {}
 
-        listener.onRetry(event)
+        listener.onRetry(event, plan)
         listener.onSuccess(event)
         listener.onFailure(event)
     }
 
     @Test
     fun `null callbacks do nothing`() {
-        val event = RetryEvent(
+        val event = AttemptEvent(
             outcome = AttemptOutcome.Returned(1),
             context = RetryContext(
                 attempt = 2,
@@ -35,6 +37,8 @@ class RetryListenerTest {
                 prevOutcome = AttemptOutcome.Returned(0),
             ),
         )
+
+        val plan = RetryPlan(Duration.ZERO)
 
         val listener = RetryListener(
             onRetry = null,
@@ -42,7 +46,7 @@ class RetryListenerTest {
             onFailure = null,
         )
 
-        listener.onRetry(event)
+        listener.onRetry(event, plan)
         listener.onSuccess(event)
         listener.onFailure(event)
     }
