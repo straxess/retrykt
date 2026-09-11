@@ -59,6 +59,9 @@ dependencies {
 | 0.5.x   | 2.3.x  | 1.10.x            |
 | 0.4.x   | 2.3.x  | 1.10.x            |
 
+The public API is not considered stable until 1.0.0. Releases in the 0.x series may introduce source- or
+binary-incompatible changes.
+
 The JVM artifact targets Java 11 and is built with JDK 17. Android requires API level 24 or newer.
 
 ## Basic use
