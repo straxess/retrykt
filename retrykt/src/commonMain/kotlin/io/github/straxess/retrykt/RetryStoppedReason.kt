@@ -1,19 +1,19 @@
 package io.github.straxess.retrykt
 
 /**
- * Describes why RetryKt exhausted a retry process.
+ * The reason why RetryKt stopped retrying.
  */
 public sealed interface RetryStoppedReason {
 
     /**
-     * Returns a human-readable description of this stop reason.
+     * Returns a description for logs or error messages.
      *
-     * Applications should not rely on its exact wording.
+     * Do not parse or compare the returned text because it may change.
      */
     public fun description(): String
 
     /**
-     * Retry stopped because the configured maximum number of attempts has been reached.
+     * The operation used all [maxAttempts] attempts.
      */
     public class MaxAttemptsReached internal constructor(
         public val maxAttempts: Int,

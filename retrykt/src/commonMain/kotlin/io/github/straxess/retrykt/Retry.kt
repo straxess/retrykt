@@ -17,16 +17,14 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 
 /**
- * Runs [task] until it produces a result that [retryOn] accepts or [maxAttempts] total attempts run out.
+ * Runs the suspending [task] until [retryOn] accepts its result or all [maxAttempts] are used.
  *
- * Designed for suspending code. Use [retryBlocking] for non-suspending code.
- * Coroutine cancellation is always propagated, including cancellation during the retry delay.
- * [CancellationException] is never passed to [retryOn] or retried.
- * Exceptions from [retryOn], [backoff], [jitter], and [listener] propagate to the caller unchanged.
+ * Cancellation stops the operation, including during a delay. [CancellationException] is not passed to [retryOn] or
+ * retried. Exceptions from [retryOn], [backoff], [jitter], and [listener] are passed to the caller unchanged.
  *
- * @throws IllegalArgumentException if [maxAttempts] is not positive.
- * @throws IllegalStateException if [backoff] or [jitter] returns a negative or infinite delay.
- * @throws RetryStoppedException if the final allowed outcome is still retryable.
+ * @throws IllegalArgumentException if [maxAttempts] is zero or negative.
+ * @throws IllegalStateException if [backoff] or [jitter] returns a negative or infinite duration.
+ * @throws RetryStoppedException if the last allowed result is still retryable.
  */
 public suspend fun <T> retry(
     maxAttempts: Int = Int.MAX_VALUE,
@@ -87,40 +85,34 @@ public suspend fun <T> retry(
         }
 
         val backoffContext = BackoffContext(attempt, prevAppliedDelay)
-        val backoffDelay = backoff.nextDelay(backoffContext)
+        val backoffDelay = backoff.calculateDelay(backoffContext)
         checkFiniteNonNegative(backoffDelay, "backoff delay")
 
-        val appliedDelay = jitter.apply(backoffDelay)
-        checkFiniteNonNegative(appliedDelay, "jitter delay")
+        val nextAppliedDelay = jitter.apply(backoffDelay)
+        checkFiniteNonNegative(nextAppliedDelay, "next applied delay")
 
-        val retryDecision =
-            RetryDecision(
-                nextDelay = appliedDelay,
-            )
+        val retryDecision = RetryDecision(nextAppliedDelay = nextAppliedDelay)
 
         currentCoroutineContext().ensureActive()
         listener.onRetry(retryEvent, retryDecision)
 
-        delay(appliedDelay)
+        delay(nextAppliedDelay)
 
-        prevAppliedDelay = appliedDelay
+        prevAppliedDelay = nextAppliedDelay
         attempt++
     }
 }
 
 /**
- * Blocking version of [retry]. Runs [task] until [retryOn] accepts its result or [maxAttempts] total attempts run out.
+ * Runs the blocking [task] until [retryOn] accepts its result or all [maxAttempts] are used.
  *
- * The function is only meaningful on platforms that support blocking waits.
- * On JS and Wasm, it supports zero-delay retries only.
+ * Use [retry] when the caller can suspend. JS and Wasm support this function only with zero delay because they cannot
+ * block the current thread. [CancellationException] is not passed to [retryOn] or retried. Exceptions from [retryOn],
+ * [backoff], [jitter], and [listener] are passed to the caller unchanged.
  *
- * Designed for blocking code. Use [retry] for suspending code.
- * [CancellationException] is never passed to [retryOn] or retried.
- * Exceptions from [retryOn], [backoff], [jitter], and [listener] propagate to the caller unchanged.
- *
- * @throws IllegalArgumentException if [maxAttempts] is not positive.
- * @throws IllegalStateException if [backoff] or [jitter] returns a negative or infinite delay.
- * @throws RetryStoppedException if the final allowed outcome is still retryable.
+ * @throws IllegalArgumentException if [maxAttempts] is zero or negative.
+ * @throws IllegalStateException if [backoff] or [jitter] returns a negative or infinite duration.
+ * @throws RetryStoppedException if the last allowed result is still retryable.
  */
 public fun <T> retryBlocking(
     maxAttempts: Int = Int.MAX_VALUE,
@@ -177,22 +169,19 @@ public fun <T> retryBlocking(
         }
 
         val backoffContext = BackoffContext(attempt, prevAppliedDelay)
-        val backoffDelay = backoff.nextDelay(backoffContext)
+        val backoffDelay = backoff.calculateDelay(backoffContext)
         checkFiniteNonNegative(backoffDelay, "backoff delay")
 
-        val appliedDelay = jitter.apply(backoffDelay)
-        checkFiniteNonNegative(appliedDelay, "jitter delay")
+        val nextAppliedDelay = jitter.apply(backoffDelay)
+        checkFiniteNonNegative(nextAppliedDelay, "next applied delay")
 
-        val retryDecision =
-            RetryDecision(
-                nextDelay = appliedDelay,
-            )
+        val retryDecision = RetryDecision(nextAppliedDelay = nextAppliedDelay)
 
         listener.onRetry(retryEvent, retryDecision)
 
-        sleep(appliedDelay)
+        sleep(nextAppliedDelay)
 
-        prevAppliedDelay = appliedDelay
+        prevAppliedDelay = nextAppliedDelay
         attempt++
     }
 }

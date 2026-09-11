@@ -7,5 +7,5 @@ import kotlin.time.Duration
  */
 public object NoJitter : Jitter {
 
-    override fun apply(rawDelay: Duration): Duration = rawDelay
+    override fun apply(backoffDelay: Duration): Duration = backoffDelay
 }

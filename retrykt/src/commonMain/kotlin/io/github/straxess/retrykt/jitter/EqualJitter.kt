@@ -5,25 +5,25 @@ import kotlin.random.Random
 import kotlin.time.Duration
 
 /**
- * AWS-style equal jitter: keeps half the delay and randomizes the other half.
- * The result is in the range `[rawDelay / 2, rawDelay]`;
- * the upper bound is reachable because [Duration] arithmetic rounds to representable values.
+ * Keeps half the backoff delay and randomizes the other half.
+ *
+ * The result is between `backoffDelay / 2` and [backoffDelay]. Duration rounding can include the upper bound.
  */
 public object EqualJitter : Jitter {
 
     /**
-     * @throws IllegalArgumentException if [rawDelay] is negative or infinite.
+     * @throws IllegalArgumentException if [backoffDelay] is negative or infinite.
      */
-    override fun apply(rawDelay: Duration): Duration = apply(rawDelay, Random.Default)
+    override fun apply(backoffDelay: Duration): Duration = apply(backoffDelay, Random.Default)
 
-    internal fun apply(rawDelay: Duration, random: Random): Duration {
-        requireFiniteNonNegative(rawDelay, "rawDelay")
+    internal fun apply(backoffDelay: Duration, random: Random): Duration {
+        requireFiniteNonNegative(backoffDelay, "backoffDelay")
 
-        if (rawDelay == Duration.ZERO) {
+        if (backoffDelay == Duration.ZERO) {
             return Duration.ZERO
         }
 
-        val half = rawDelay / 2
+        val half = backoffDelay / 2
 
         return half + half * random.nextDouble()
     }

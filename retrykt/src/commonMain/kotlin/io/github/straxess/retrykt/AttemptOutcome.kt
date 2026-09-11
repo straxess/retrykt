@@ -1,21 +1,20 @@
 package io.github.straxess.retrykt
 
 /**
- * Represents the outcome of a single task invocation.
- *
- * It either returned a value or threw an exception. [RetryOn] decides whether to try again.
+ * The result of one attempt: a returned value or a thrown exception.
+ * [RetryOn] uses this result to decide whether to retry.
  */
 public sealed interface AttemptOutcome<out T> {
 
     /**
-     * The task completed normally and returned a [value].
+     * An attempt that returned [value].
      */
     public class Returned<T> internal constructor(
         public val value: T,
     ) : AttemptOutcome<T>
 
     /**
-     * The task terminated by throwing a [throwable].
+     * An attempt that threw [throwable].
      */
     public class Thrown internal constructor(
         public val throwable: Throwable,

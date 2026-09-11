@@ -12,8 +12,8 @@ class ConstantBackoffTest {
     fun `returns constant delay`() {
         val backoff = ConstantBackoff(10.seconds)
 
-        val firstDelay = backoff.nextDelay(BackoffContext(1, null))
-        val secondDelay = backoff.nextDelay(BackoffContext(2, firstDelay))
+        val firstDelay = backoff.calculateDelay(BackoffContext(1, null))
+        val secondDelay = backoff.calculateDelay(BackoffContext(2, firstDelay))
 
         assertEquals(10.seconds, firstDelay)
         assertEquals(10.seconds, secondDelay)

@@ -5,12 +5,10 @@ import kotlin.random.Random
 import kotlin.time.Duration
 
 /**
- * Adds a random delay in the range `[0, maxJitter]` to the backoff delay.
+ * Adds a random value from `0` to [maxJitter] to the backoff delay.
  *
- * Unlike [FullJitter] and [EqualJitter], this extra delay does not depend on the backoff delay.
- * The upper bound is reachable because [Duration] arithmetic rounds to representable values.
- * The complete range must be finite;
- * it is rejected instead of being truncated when `rawDelay + maxJitter` overflows to [Duration.INFINITE].
+ * This random part does not depend on the backoff delay. Duration rounding can include the upper bound. The complete
+ * range must be finite; RetryKt rejects an overflow instead of shortening the range.
  *
  * @throws IllegalArgumentException if [maxJitter] is negative or infinite.
  */
@@ -23,24 +21,24 @@ public class AdditiveJitter(
     }
 
     /**
-     * @throws IllegalArgumentException if [rawDelay] is negative or infinite.
-     * @throws IllegalStateException if `rawDelay + maxJitter` is infinite.
+     * @throws IllegalArgumentException if [backoffDelay] is negative or infinite.
+     * @throws IllegalStateException if `backoffDelay + maxJitter` is infinite.
      */
-    override fun apply(rawDelay: Duration): Duration = apply(rawDelay, Random.Default)
+    override fun apply(backoffDelay: Duration): Duration = apply(backoffDelay, Random.Default)
 
-    internal fun apply(rawDelay: Duration, random: Random): Duration {
-        requireFiniteNonNegative(rawDelay, "rawDelay")
+    internal fun apply(backoffDelay: Duration, random: Random): Duration {
+        requireFiniteNonNegative(backoffDelay, "backoffDelay")
 
         if (maxJitter == Duration.ZERO) {
-            return rawDelay
+            return backoffDelay
         }
 
-        val upperBound = rawDelay + maxJitter
+        val upperBound = backoffDelay + maxJitter
 
         check(upperBound.isFinite()) {
-            "rawDelay + maxJitter must be finite."
+            "backoffDelay + maxJitter must be finite."
         }
 
-        return rawDelay + (upperBound - rawDelay) * random.nextDouble()
+        return backoffDelay + (upperBound - backoffDelay) * random.nextDouble()
     }
 }

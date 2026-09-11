@@ -24,9 +24,9 @@ class RetryBlockingJvmTest {
         retryBlocking(
             maxAttempts = 2,
             backoff = object : Backoff {
-                override fun nextDelay(context: BackoffContext) = 20.milliseconds
+                override fun calculateDelay(context: BackoffContext) = 20.milliseconds
             },
-            jitter = { rawDelay -> rawDelay + 10.milliseconds },
+            jitter = { backoffDelay -> backoffDelay + 10.milliseconds },
         ) {
             attempts++
 
@@ -40,16 +40,16 @@ class RetryBlockingJvmTest {
     }
 
     @Test
-    fun `jitter receives raw delay from backoff`() {
-        val rawDelays = mutableListOf<Duration>()
+    fun `jitter receives backoff delay from backoff`() {
+        val backoffDelays = mutableListOf<Duration>()
 
         retryBlocking(
             maxAttempts = 2,
             backoff = object : Backoff {
-                override fun nextDelay(context: BackoffContext) = 100.milliseconds
+                override fun calculateDelay(context: BackoffContext) = 100.milliseconds
             },
             jitter = {
-                rawDelays += it
+                backoffDelays += it
                 it
             },
         ) {
@@ -58,7 +58,7 @@ class RetryBlockingJvmTest {
             }
         }
 
-        assertEquals(listOf(100.milliseconds), rawDelays)
+        assertEquals(listOf(100.milliseconds), backoffDelays)
     }
 
     @Test
@@ -67,7 +67,7 @@ class RetryBlockingJvmTest {
 
         retryBlocking(
             backoff = object : Backoff {
-                override fun nextDelay(context: BackoffContext): Duration {
+                override fun calculateDelay(context: BackoffContext): Duration {
                     prevAppliedDelays += context.prevAppliedDelay
                     return 100.milliseconds * context.attempt
                 }
@@ -106,6 +106,6 @@ class RetryBlockingJvmTest {
 
         assertTrue(event.outcome is AttemptOutcome.Returned)
         assertEquals("retry", event.outcome.value)
-        assertEquals(100.milliseconds, decision.nextDelay)
+        assertEquals(100.milliseconds, decision.nextAppliedDelay)
     }
 }

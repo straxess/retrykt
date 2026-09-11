@@ -5,8 +5,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * A positive [duration] less than 1 ms is rounded up to 1 ms
- * because `Sleep(0)` does not guarantee that the current thread will wait.
+ * Rounds a positive [duration] below 1 ms up to 1 ms because Windows `Sleep(0)` may not wait.
  */
 internal actual fun sleepInternal(duration: Duration) {
     var remaining = duration

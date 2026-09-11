@@ -5,23 +5,22 @@ import kotlin.random.Random
 import kotlin.time.Duration
 
 /**
- * AWS-style full jitter: returns a random delay in the range `[0, rawDelay]`.
- * The upper bound is reachable because [Duration] arithmetic rounds to representable values.
+ * Returns a random delay from zero to [backoffDelay]. Duration rounding can include the upper bound.
  */
 public object FullJitter : Jitter {
 
     /**
-     * @throws IllegalArgumentException if [rawDelay] is negative or infinite.
+     * @throws IllegalArgumentException if [backoffDelay] is negative or infinite.
      */
-    override fun apply(rawDelay: Duration): Duration = apply(rawDelay, Random.Default)
+    override fun apply(backoffDelay: Duration): Duration = apply(backoffDelay, Random.Default)
 
-    internal fun apply(rawDelay: Duration, random: Random): Duration {
-        requireFiniteNonNegative(rawDelay, "rawDelay")
+    internal fun apply(backoffDelay: Duration, random: Random): Duration {
+        requireFiniteNonNegative(backoffDelay, "backoffDelay")
 
-        if (rawDelay == Duration.ZERO) {
+        if (backoffDelay == Duration.ZERO) {
             return Duration.ZERO
         }
 
-        return rawDelay * random.nextDouble()
+        return backoffDelay * random.nextDouble()
     }
 }

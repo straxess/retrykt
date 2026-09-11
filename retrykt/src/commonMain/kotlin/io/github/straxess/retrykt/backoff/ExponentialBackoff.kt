@@ -5,20 +5,21 @@ import kotlin.math.pow
 import kotlin.time.Duration
 
 /**
- * Multiplies [initialDelay] by [multiplier] after each attempt, up to the required finite [maxDelay].
+ * Uses [firstDelay] before the first retry. Each later retry delay is multiplied by [multiplier], without exceeding
+ * [maxDelay]. The first attempt starts immediately.
  *
- * Requires `0 <= initialDelay <= maxDelay < Duration.INFINITE` and a finite [multiplier] of at least `1.0`.
+ * Delays must be finite and `0 <= firstDelay <= maxDelay`. [multiplier] must be finite and at least `1.0`.
  *
- * @throws IllegalArgumentException if [initialDelay], [maxDelay], or [multiplier] violates the required bounds.
+ * @throws IllegalArgumentException if a value does not meet these requirements.
  */
 public class ExponentialBackoff(
-    public val initialDelay: Duration,
+    public val firstDelay: Duration,
     public val maxDelay: Duration,
     public val multiplier: Double = 2.0,
 ) : Backoff {
 
     init {
-        requireFiniteNonNegative(initialDelay, "initialDelay")
+        requireFiniteNonNegative(firstDelay, "firstDelay")
         requireFiniteNonNegative(maxDelay, "maxDelay")
 
         require(multiplier.isFinite()) {
@@ -29,33 +30,33 @@ public class ExponentialBackoff(
             "multiplier must not be less than 1.0."
         }
 
-        require(maxDelay >= initialDelay) {
-            "maxDelay must not be less than initialDelay."
+        require(maxDelay >= firstDelay) {
+            "maxDelay must not be less than firstDelay."
         }
     }
 
-    override fun nextDelay(context: BackoffContext): Duration {
+    override fun calculateDelay(context: BackoffContext): Duration {
         val attempt = context.attempt
 
         if (attempt == 1 || multiplier == 1.0) {
-            return initialDelay
+            return firstDelay
         }
 
-        if (initialDelay == Duration.ZERO) {
+        if (firstDelay == Duration.ZERO) {
             return Duration.ZERO
         }
 
-        if (initialDelay == maxDelay) {
+        if (firstDelay == maxDelay) {
             return maxDelay
         }
 
         val exponent = attempt - 1
         val factor = multiplier.pow(exponent)
 
-        if (factor >= maxDelay / initialDelay) {
+        if (factor >= maxDelay / firstDelay) {
             return maxDelay
         }
 
-        return (initialDelay * factor).coerceAtMost(maxDelay)
+        return (firstDelay * factor).coerceAtMost(maxDelay)
     }
 }

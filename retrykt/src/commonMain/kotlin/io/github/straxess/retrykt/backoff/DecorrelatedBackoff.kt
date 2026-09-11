@@ -5,40 +5,41 @@ import kotlin.random.Random
 import kotlin.time.Duration
 
 /**
- * Randomized backoff based on the AWS decorrelated-jitter algorithm.
+ * Calculates randomized delays with the AWS decorrelated-jitter algorithm.
  *
- * This backoff already adds randomness, so it is usually paired with `NoJitter`.
+ * This strategy already adds randomness and normally does not need another jitter.
  *
- * The first retry uses `initialDelay`. Subsequent retry delays are computed as:
- * `random(initialDelay, min(maxDelay, prevAppliedDelay * 3))`.
- * Requires `0 <= initialDelay <= maxDelay < Duration.INFINITE`.
+ * The first attempt starts immediately. The delay before the first retry is [firstDelay]. Later delays are calculated
+ * as:
+ * `random(firstDelay, min(maxDelay, prevAppliedDelay * 3))`.
+ * Both configured delays must be finite and `0 <= firstDelay <= maxDelay`.
  *
- * @throws IllegalArgumentException if [initialDelay] or [maxDelay] violates the required bounds.
+ * @throws IllegalArgumentException if a delay is negative or infinite, or [firstDelay] is greater than [maxDelay].
  */
 public class DecorrelatedBackoff(
-    public val initialDelay: Duration,
+    public val firstDelay: Duration,
     public val maxDelay: Duration,
 ) : Backoff {
 
     init {
-        requireFiniteNonNegative(initialDelay, "initialDelay")
+        requireFiniteNonNegative(firstDelay, "firstDelay")
         requireFiniteNonNegative(maxDelay, "maxDelay")
 
-        require(maxDelay >= initialDelay) {
-            "maxDelay must not be less than initialDelay."
+        require(maxDelay >= firstDelay) {
+            "maxDelay must not be less than firstDelay."
         }
     }
 
-    override fun nextDelay(context: BackoffContext): Duration = nextDelay(context, Random.Default)
+    override fun calculateDelay(context: BackoffContext): Duration = calculateDelay(context, Random.Default)
 
-    internal fun nextDelay(context: BackoffContext, random: Random): Duration {
-        val prevAppliedDelay = context.prevAppliedDelay ?: return initialDelay
+    internal fun calculateDelay(context: BackoffContext, random: Random): Duration {
+        val prevAppliedDelay = context.prevAppliedDelay ?: return firstDelay
         val upperBound = if (prevAppliedDelay > maxDelay / 3) maxDelay else prevAppliedDelay * 3
 
-        if (upperBound <= initialDelay) {
-            return initialDelay
+        if (upperBound <= firstDelay) {
+            return firstDelay
         }
 
-        return initialDelay + (upperBound - initialDelay) * random.nextDouble()
+        return firstDelay + (upperBound - firstDelay) * random.nextDouble()
     }
 }

@@ -12,7 +12,7 @@ import kotlin.time.Duration.Companion.nanoseconds
 class EqualJitterTest {
 
     @Test
-    fun `returns zero for zero raw delay`() {
+    fun `returns zero for zero backoff delay`() {
         assertEquals(
             Duration.ZERO,
             EqualJitter.apply(Duration.ZERO),
@@ -21,26 +21,26 @@ class EqualJitterTest {
 
     @Test
     fun `returns delay in equal jitter range`() {
-        val rawDelay = 10.milliseconds
-        val minimumDelay = rawDelay / 2
+        val backoffDelay = 10.milliseconds
+        val minimumDelay = backoffDelay / 2
         val random = Random(0)
 
         repeat(1_000) {
-            val actual = EqualJitter.apply(rawDelay, random)
+            val actual = EqualJitter.apply(backoffDelay, random)
 
             assertTrue(actual >= minimumDelay)
-            assertTrue(actual <= rawDelay)
+            assertTrue(actual <= backoffDelay)
         }
     }
 
     @Test
     fun `returns randomized delay`() {
-        val rawDelay = 100.milliseconds
+        val backoffDelay = 100.milliseconds
         val random = Random(0)
 
         val delays = buildSet {
             repeat(1_000) {
-                add(EqualJitter.apply(rawDelay, random))
+                add(EqualJitter.apply(backoffDelay, random))
             }
         }
 
@@ -48,21 +48,21 @@ class EqualJitterTest {
     }
 
     @Test
-    fun `throws IllegalArgumentException for negative raw delay`() {
+    fun `throws IllegalArgumentException for negative backoff delay`() {
         assertFailsWith<IllegalArgumentException> {
             EqualJitter.apply((-100).milliseconds)
         }
     }
 
     @Test
-    fun `throws IllegalArgumentException for infinite raw delay`() {
+    fun `throws IllegalArgumentException for infinite backoff delay`() {
         assertFailsWith<IllegalArgumentException> {
             EqualJitter.apply(Duration.INFINITE)
         }
     }
 
     @Test
-    fun `handles sub-divisible raw delays`() {
+    fun `handles sub-divisible backoff delays`() {
         assertEquals(Duration.ZERO, EqualJitter.apply(1.nanoseconds))
         val random = Random(0)
 

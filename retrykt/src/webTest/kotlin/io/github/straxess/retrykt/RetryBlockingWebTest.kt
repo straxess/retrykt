@@ -45,16 +45,16 @@ class RetryBlockingWebTest {
     }
 
     @Test
-    fun `jitter receives raw delay from backoff`() {
-        val rawDelays = mutableListOf<Duration>()
+    fun `jitter receives backoff delay from backoff`() {
+        val backoffDelays = mutableListOf<Duration>()
 
         retryBlocking(
             maxAttempts = 2,
             backoff = object : Backoff {
-                override fun nextDelay(context: BackoffContext) = 0.milliseconds
+                override fun calculateDelay(context: BackoffContext) = 0.milliseconds
             },
             jitter = {
-                rawDelays += it
+                backoffDelays += it
                 it
             },
         ) {
@@ -63,7 +63,7 @@ class RetryBlockingWebTest {
             }
         }
 
-        assertEquals(listOf(0.milliseconds), rawDelays)
+        assertEquals(listOf(0.milliseconds), backoffDelays)
     }
 
     @Test
@@ -72,7 +72,7 @@ class RetryBlockingWebTest {
 
         retryBlocking(
             backoff = object : Backoff {
-                override fun nextDelay(context: BackoffContext): Duration {
+                override fun calculateDelay(context: BackoffContext): Duration {
                     prevAppliedDelays += context.prevAppliedDelay
                     return 0.milliseconds * context.attempt
                 }
@@ -111,6 +111,6 @@ class RetryBlockingWebTest {
 
         assertTrue(event.outcome is AttemptOutcome.Returned)
         assertEquals("retry", event.outcome.value)
-        assertEquals(0.milliseconds, decision.nextDelay)
+        assertEquals(0.milliseconds, decision.nextAppliedDelay)
     }
 }

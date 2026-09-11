@@ -156,7 +156,7 @@ class RetryTest {
                         true
                     },
                     backoff = object : Backoff {
-                        override fun nextDelay(context: BackoffContext): Duration {
+                        override fun calculateDelay(context: BackoffContext): Duration {
                             backoffCalled = true
                             return Duration.ZERO
                         }
@@ -220,7 +220,7 @@ class RetryTest {
         assertFailsWith<IllegalStateException> {
             retry(
                 backoff = object : Backoff {
-                    override fun nextDelay(context: BackoffContext) = (-1).milliseconds
+                    override fun calculateDelay(context: BackoffContext) = (-1).milliseconds
                 },
             ) {
                 error("task should not succeed")
@@ -251,7 +251,7 @@ class RetryTest {
             assertFailsWith<RuntimeException> {
                 retry(
                     backoff = object : Backoff {
-                        override fun nextDelay(context: BackoffContext): Duration = throw backoffException
+                        override fun calculateDelay(context: BackoffContext): Duration = throw backoffException
                     },
                 ) {
                     error("retry")
@@ -384,7 +384,7 @@ class RetryTest {
         retry(
             maxAttempts = 2,
             backoff = object : Backoff {
-                override fun nextDelay(context: BackoffContext) = 20.milliseconds
+                override fun calculateDelay(context: BackoffContext) = 20.milliseconds
             },
             jitter = { it + 10.milliseconds },
         ) {
@@ -484,7 +484,7 @@ class RetryTest {
 
         assertTrue(event.outcome is AttemptOutcome.Returned)
         assertEquals("retry", event.outcome.value)
-        assertEquals(100.milliseconds, decision.nextDelay)
+        assertEquals(100.milliseconds, decision.nextAppliedDelay)
     }
 
     @Test
@@ -722,16 +722,16 @@ class RetryTest {
     }
 
     @Test
-    fun `jitter receives raw delay from backoff`() = runTest {
-        val rawDelays = mutableListOf<Duration>()
+    fun `jitter receives backoff delay from backoff`() = runTest {
+        val backoffDelays = mutableListOf<Duration>()
 
         retry(
             maxAttempts = 2,
             backoff = object : Backoff {
-                override fun nextDelay(context: BackoffContext) = 100.milliseconds
+                override fun calculateDelay(context: BackoffContext) = 100.milliseconds
             },
             jitter = {
-                rawDelays += it
+                backoffDelays += it
                 it
             },
         ) {
@@ -740,7 +740,7 @@ class RetryTest {
             }
         }
 
-        assertEquals(listOf(100.milliseconds), rawDelays)
+        assertEquals(listOf(100.milliseconds), backoffDelays)
     }
 
     @Test
@@ -749,7 +749,7 @@ class RetryTest {
 
         retry(
             backoff = object : Backoff {
-                override fun nextDelay(context: BackoffContext): Duration {
+                override fun calculateDelay(context: BackoffContext): Duration {
                     prevAppliedDelays += context.prevAppliedDelay
                     return 100.milliseconds * context.attempt
                 }
@@ -797,7 +797,7 @@ class RetryTest {
         assertFailsWith<IllegalStateException> {
             retry(
                 backoff = object : Backoff {
-                    override fun nextDelay(context: BackoffContext) = Duration.INFINITE
+                    override fun calculateDelay(context: BackoffContext) = Duration.INFINITE
                 },
             ) {
                 error("task should not succeed")
@@ -821,7 +821,7 @@ class RetryTest {
         assertFailsWith<IllegalStateException> {
             retry(
                 backoff = object : Backoff {
-                    override fun nextDelay(context: BackoffContext): Duration = Duration.INFINITE
+                    override fun calculateDelay(context: BackoffContext): Duration = Duration.INFINITE
                 },
                 listener = RetryListener(
                     onRetry = { _, _ -> listenerCalled = true },

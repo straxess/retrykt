@@ -122,7 +122,7 @@ class RetryBlockingTest {
         assertFailsWith<IllegalStateException> {
             retryBlocking(
                 backoff = object : Backoff {
-                    override fun nextDelay(context: BackoffContext) = (-1).milliseconds
+                    override fun calculateDelay(context: BackoffContext) = (-1).milliseconds
                 },
             ) {
                 error("task should not succeed")
@@ -153,7 +153,7 @@ class RetryBlockingTest {
             assertFailsWith<RuntimeException> {
                 retryBlocking(
                     backoff = object : Backoff {
-                        override fun nextDelay(context: BackoffContext): Duration = throw backoffException
+                        override fun calculateDelay(context: BackoffContext): Duration = throw backoffException
                     },
                 ) {
                     error("retry")
@@ -607,7 +607,7 @@ class RetryBlockingTest {
         assertFailsWith<IllegalStateException> {
             retryBlocking(
                 backoff = object : Backoff {
-                    override fun nextDelay(context: BackoffContext) = Duration.INFINITE
+                    override fun calculateDelay(context: BackoffContext) = Duration.INFINITE
                 },
             ) {
                 error("task should not succeed")
@@ -631,7 +631,7 @@ class RetryBlockingTest {
         assertFailsWith<IllegalStateException> {
             retryBlocking(
                 backoff = object : Backoff {
-                    override fun nextDelay(context: BackoffContext): Duration = Duration.INFINITE
+                    override fun calculateDelay(context: BackoffContext): Duration = Duration.INFINITE
                 },
                 listener = RetryListener(
                     onRetry = { _, _ -> listenerCalled = true },

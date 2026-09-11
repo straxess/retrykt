@@ -1,10 +1,10 @@
 package io.github.straxess.retrykt
 
 /**
- * Decides whether RetryKt should run another attempt after an outcome.
+ * Decides whether to retry an [AttemptOutcome].
  *
- * Create one with [default], [thrown], [returned], or [outcome].
- * Exceptions thrown by a predicate propagate to the caller unchanged.
+ * Use [default], [thrown], [returned], or [outcome] to create a policy. An exception from a predicate is passed to the
+ * caller unchanged.
  */
 public class RetryOn<in T> internal constructor(
     internal val shouldRetry: (AttemptOutcome<T>) -> Boolean,
@@ -13,13 +13,12 @@ public class RetryOn<in T> internal constructor(
     public companion object {
 
         /**
-         * Retries only [Throwable], excluding [Error].
+         * Retries any thrown exception except [Error]. Returned values are accepted.
          */
         public fun <T> default(): RetryOn<T> = thrown { it !is Error }
 
         /**
-         * Retries thrown exceptions when [predicate] returns `true`.
-         * Returned values are accepted.
+         * Retries a thrown exception when [predicate] returns `true`. Returned values are accepted.
          */
         public fun <T> thrown(predicate: (Throwable) -> Boolean): RetryOn<T> = RetryOn { outcome ->
             when (outcome) {
@@ -29,8 +28,7 @@ public class RetryOn<in T> internal constructor(
         }
 
         /**
-         * Retries returned values when [predicate] returns `true`.
-         * Thrown exceptions are propagated.
+         * Retries a returned value when [predicate] returns `true`. Thrown exceptions are not retried.
          */
         public fun <T> returned(predicate: (T) -> Boolean): RetryOn<T> = RetryOn { outcome ->
             when (outcome) {
@@ -40,7 +38,7 @@ public class RetryOn<in T> internal constructor(
         }
 
         /**
-         * Retries when [predicate] returns `true` for either kind of outcome.
+         * Retries when [predicate] returns `true` for a returned value or thrown exception.
          */
         public fun <T> outcome(predicate: (AttemptOutcome<T>) -> Boolean): RetryOn<T> = RetryOn(predicate)
     }

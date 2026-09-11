@@ -4,7 +4,7 @@ import io.github.straxess.retrykt.internal.requireFiniteNonNegative
 import kotlin.time.Duration
 
 /**
- * Uses the same [delay] before every retry.
+ * Returns the same [delay] before every retry.
  *
  * @throws IllegalArgumentException if [delay] is negative or infinite.
  */
@@ -16,5 +16,5 @@ public class ConstantBackoff(
         requireFiniteNonNegative(delay, "delay")
     }
 
-    override fun nextDelay(context: BackoffContext): Duration = delay
+    override fun calculateDelay(context: BackoffContext): Duration = delay
 }
