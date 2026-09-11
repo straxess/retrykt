@@ -62,7 +62,11 @@ public suspend fun <T> retry(
 
         val attemptEvent = AttemptEvent(outcome, retryContext)
 
-        if (!retryOn.shouldRetry(outcome)) {
+        val shouldRetry = retryOn.shouldRetry(outcome)
+
+        currentCoroutineContext().ensureActive()
+
+        if (!shouldRetry) {
             return when (outcome) {
                 is AttemptOutcome.Returned -> {
                     listener.onSuccess(attemptEvent)

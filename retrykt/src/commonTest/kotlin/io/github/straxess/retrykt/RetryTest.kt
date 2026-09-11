@@ -183,6 +183,59 @@ class RetryTest {
         assertFalse(listenerCalled)
     }
 
+    @Test
+    fun `cancellation during retry predicate prevents accepted outcome and terminal callbacks`() = runTest {
+        val job = Job()
+        val listenerEvents = mutableListOf<String>()
+
+        assertFailsWith<CancellationException> {
+            withContext(job) {
+                retry(
+                    retryOn = RetryOn.outcome<String> {
+                        job.cancel()
+                        false
+                    },
+                    listener = RetryListener(
+                        onRetry = { _, _ -> listenerEvents += "retry" },
+                        onSuccess = { listenerEvents += "success" },
+                        onFailure = { listenerEvents += "failure" },
+                    ),
+                ) {
+                    "result"
+                }
+            }
+        }
+
+        assertTrue(listenerEvents.isEmpty())
+    }
+
+    @Test
+    fun `cancellation during retry predicate prevents exhausted outcome and terminal callbacks`() = runTest {
+        val job = Job()
+        val listenerEvents = mutableListOf<String>()
+
+        assertFailsWith<CancellationException> {
+            withContext(job) {
+                retry(
+                    maxAttempts = 1,
+                    retryOn = RetryOn.outcome<String> {
+                        job.cancel()
+                        true
+                    },
+                    listener = RetryListener(
+                        onRetry = { _, _ -> listenerEvents += "retry" },
+                        onSuccess = { listenerEvents += "success" },
+                        onFailure = { listenerEvents += "failure" },
+                    ),
+                ) {
+                    "result"
+                }
+            }
+        }
+
+        assertTrue(listenerEvents.isEmpty())
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun `cancellation during delay prevents the next attempt and terminal callbacks`() = runTest {
